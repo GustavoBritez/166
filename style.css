@@ -1,0 +1,191 @@
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: #ffb7c5; 
+    color: #333333;
+    min-height: 100vh;
+    overflow: hidden;
+}
+
+/* CONTENEDOR PRINCIPAL */
+.story-container {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    cursor: pointer; /* Indica que se puede tocar para avanzar */
+}
+
+/* DIAPOSITIVAS (Estilo Historias) */
+.slide {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.6s ease, visibility 0.6s;
+    z-index: 10;
+}
+
+.slide.active {
+    opacity: 1;
+    visibility: visible;
+    z-index: 20;
+}
+
+/* CONTENEDOR DE LOS DIBUJOS */
+.svg-container {
+    width: 220px;
+    height: 220px;
+    margin-bottom: 20px;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,0.06));
+    animation: floatEffect 3s ease-in-out infinite alternate;
+}
+
+@keyframes floatEffect {
+    0% { transform: translateY(0px); }
+    100% { transform: translateY(-10px); }
+}
+
+.svg-container svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* TARJETAS DE TEXTO */
+.story-card, .card {
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(255, 182, 197, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 30px 24px;
+    border-radius: 24px;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: 0 10px 35px rgba(21, 5, 12, 0.08);
+}
+
+h1, h2 {
+    font-size: 1.6rem;
+    margin-bottom: 12px;
+    color: #d11a5b;
+}
+
+p {
+    font-size: 1rem;
+    color: #4a4a4a;
+    line-height: 1.5;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+strong {
+    color: #d11a5b;
+    font-weight: 700;
+}
+
+/* Indicador de "Toca para avanzar" */
+.tap-hint {
+    font-size: 0.8rem;
+    color: #ff6584;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: inline-block;
+    margin-top: 10px;
+    animation: pulseText 1.5s infinite;
+}
+
+@keyframes pulseText {
+    0% { opacity: 0.4; }
+    100% { opacity: 1; }
+}
+
+/* BOTONES FINALES */
+.btn-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 20px;
+    width: 100%;
+}
+
+.btn {
+    padding: 14px;
+    font-size: 1rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-acepto {
+    background: linear-gradient(45deg, #ff6584, #d11a5b);
+    color: white;
+    box-shadow: 0 4px 15px rgba(209, 26, 91, 0.25);
+}
+
+.btn-rechazo {
+    background-color: #ffffff;
+    color: #777777;
+    border: 1px solid #cccccc;
+}
+
+/* PANTALLA DE ÉXITO */
+.success-screen {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: #ffb7c5;
+    z-index: 100;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.success-screen h2 {
+    color: #d11a5b;
+    font-size: 2.2rem;
+    margin-bottom: 15px;
+}
+
+.highlight {
+    color: #ffffff;
+    background-color: #ff6584;
+    padding: 4px 12px;
+    border-radius: 8px;
+    display: inline-block;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.party-lights {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    animation: flashPastel 0.6s infinite;
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+@keyframes flashPastel {
+    0% { background-color: #ffb7c5; }
+    50% { background-color: #ffe4e1; }
+    100% { background-color: #ffdae0; }
+}
