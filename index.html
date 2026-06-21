@@ -1,58 +1,39 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>¡Alerta de Sistema! 🚀</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-    <div id="storyContainer" class="story-container">
-        
-        <div class="slide active" id="slide1">
-            <div class="daniel-oficial-avatar"></div>
-            
-            <div class="story-card">
-                <h1>Hola Valu... ⚠️</h1>
-                <p>Se detectó un reporte en el sistema: demasiadas horas de encierro y estudio esta semana.</p>
-                <span class="tap-hint">Toca para continuar...</span>
-            </div>
+    <div id="loadingScreen" class="loading-screen">
+        <div class="loader-content">
+            <div class="daniel-oficial-avatar loader-avatar"></div>
+            <div class="spinner"></div>
+            <p>Iniciando motor dinámico... 🚀</p>
         </div>
-
-            <div class="game-layer" id="gameLayer">
-                <div class="game-header">
-                    <h2>¡Rompe los caramelos! 🌸</h2>
-                    <p>Alineá piezas vecinas. Movimientos restantes: <span id="movesCount">4</span></p>
-                </div>
-                <div class="grid-container">
-                    <div class="grid" id="grid"></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="slide" id="slide4">
-            <div class="card">
-                <h1>¿Vamos a pasear? 🎢</h1>
-                <p>Prepará las zapatillas cómodas, este fin de semana nos vamos a Tigre al <strong>Parque de la Costa</strong> a pasar una tarde a pura adrenalina y risas.</p>
-                <div class="btn-container">
-                    <button class="btn btn-acepto" id="btnS">De una, ¡me re pinta! 🗺️</button>
-                    <button class="btn btn-rechazo" id="btnNo">No puedo, prefiero estudiar 🤓</button>
-                </div>
-            </div>
-        </div>
-
     </div>
 
-    <div class="success-screen" id="successScreen">
+    <div id="storyContainer" class="story-container"></div>
+
+    <div class="success-screen" id="successScreen" style="display: none;">
         <div class="party-lights"></div>
         <h2>¡Código Ejecutado! 🚀</h2>
         <p class="highlight">Acción confirmada con éxito.</p>
         <p>Coordinemos el horario por WhatsApp y dejamos el script corriendo. ¡Nos vemos el finde, Valu! 😎</p>
     </div>
 
+    <script src="Niveles/levels.js"></script>
+    <script src="Niveles/Nivel_2.js"></script>
+    <script src="Service/GameFactory.js"></script>
+
     <script src="classes.js"></script>
-    <script src="Jelly.js"></script>
-    <script src="script.js"></script>
+    <script src="AppOrchestrator.js"></script>
+
 </body>
+
 </html>

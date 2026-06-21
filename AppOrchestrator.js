@@ -1,71 +1,81 @@
 class AppOrchestrator {
     constructor() {
-        // Centraliza las referencias críticas del DOM
+        // 1. Capturamos el contenedor único (donde limpiaremos e inyectaremos las pantallas)
+        this.container = document.getElementById('storyContainer');
         this.loadingScreen = document.getElementById('loadingScreen');
-        this.storyContainer = document.getElementById('storyContainer');
         this.successScreen = document.getElementById('successScreen');
-        
-        // Estado de los subsistemas (inicialmente apagados)
-        this.flowManager = null; // Lo que antes era AppManager
-        this.gameEngine = null;  // Lo que antes era GameManager
+
+        // Estado global del juego
+        this.currentLevelId = 1; // Nivel de arranque (Acordate de pasarlo a 1 si querés arrancar desde el principio)
+        this.activeEngine = null; // Acá se guardará el motor de turno 
 
         this.boot();
     }
 
-    // 1. Sistema de arranque (Bootstrapping)
     boot() {
         this.showLoadingScreen();
-        this.setupGlobalEvents();
-        
-        // Espera a que el navegador termine de descargar los assets
+
+        // Espera a que el navegador termine de descargar los assets (fichas, imágenes)
         window.addEventListener('load', () => {
-            setTimeout(() => this.startStoryFlow(), 1200);
+            setTimeout(() => {
+                this.loadingScreen.classList.add('fade-out');
+                this.container.style.display = 'block';
+
+                // 🔥 DISPARAMOS EL PRIMER NIVEL DE NUESTRA BASE DE DATOS
+                this.renderCurrentLevel();
+            }, 1200);
         });
     }
 
-    // 2. Control de la Pantalla de Carga
     showLoadingScreen() {
         this.loadingScreen.style.display = 'flex';
-        this.storyContainer.style.display = 'none';
+        this.container.style.display = 'none';
         this.successScreen.style.display = 'none';
     }
 
-    // 3. Transición al flujo interactivo
-    startStoryFlow() {
-        this.loadingScreen.classList.add('fade-out');
-        this.storyContainer.style.display = 'block';
-        
-        // Inicializamos el manejador de pantallas pasándole este orquestador
-        this.flowManager = new FlowManager(this); 
-    }
+    renderCurrentLevel() {
+        if (this.activeEngine && typeof this.activeEngine.destroy === 'function') {
+            this.activeEngine.destroy();
+            this.activeEngine = null;
+        }
 
-    // 4. Orquestación del Nivel (Se dispara desde el Slide 3)
-    loadGameLevel(gridElement, movesDisplay) {
-        console.log("Orchestrator: Inicializando el motor de Match-3...");
-        
-        // Instancia el juego pasándole el callback de victoria hacia este orquestador
-        this.gameEngine = new GameEngine(
-            gridElement, 
-            movesDisplay, 
-            () => this.handleLevelCleared()
+        const levelData = GAME_LEVELS[this.currentLevelId];
+        if (!levelData) return;
+        const gameObject = GameFactory.build(
+            levelData.type,
+            levelData,
+            () => this.goToLobby(),
+            (id) => this.jumpToLevel(id)
         );
-        this.gameEngine.start();
+
+        if (!gameObject) return;
+
+        this.container.innerHTML = gameObject.template;
+        this.activeEngine = gameObject.init();
     }
 
-    // 5. Manejo del éxito en el minijuego
-    handleLevelCleared() {
-        console.log("Orchestrator: Nivel completado con éxito. Revelando propuesta.");
-        document.getElementById('gameLayer').style.opacity = '0';
-        
-        setTimeout(() => {
-            document.getElementById('gameLayer').style.display = 'none';
-            document.getElementById('secretInvitation').classList.add('revealed');
-        }, 400);
+    // Método cuando un minijuego grita "gané": lo mandamos al Lobby (Nivel 4)
+    goToLobby() {
+        console.log("Nivel completado. Regresando al centro de comandos...");
+        this.currentLevelId = 4; // Poné acá el ID exacto donde definiste tu lobby en levels.js
+        this.renderCurrentLevel();
     }
 
-    // 6. Cierre del ciclo de vida
+    // Método cuando el menú dice "eligieron este nivel"
+    jumpToLevel(id) {
+        console.log(`Cargando nivel seleccionado: ${id}`);
+        this.currentLevelId = id;
+        this.renderCurrentLevel();
+    }
+    // Avanza el puntero de la base de datos y redibuja la interfaz
+    nextLevel() {
+        this.currentLevelId++;
+        this.renderCurrentLevel();
+    }
+
+    // Cierre del ciclo de vida (Muestra la pantalla rosa final)
     triggerSuccessState() {
-        this.storyContainer.style.display = 'none';
+        this.container.style.display = 'none';
         this.successScreen.style.display = 'flex';
     }
 }
