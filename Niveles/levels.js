@@ -3,29 +3,24 @@
 // =================================================================
 const GAME_LEVELS = {
     1: {
-        type: "nivel 1",
-        avatar: "dear-daniel",
-        title: " Party ",
-        text: `[INFO] Historia ................. Historia`,
-        buttonText: " Encuentra el camino "
+        type: "lobby",
+        title: "Lobby",
+        text: " Hola soy tu avatar ",
     },
     2: {
-        type: "nivel 2",
-        title: "Colocar Titulo",
-        gravity: 0.5,
-        mapLength: 2000,
-        text: `[INFO]`,
-        enemies: [
-            { name: "Badtz", hp: 3, x: 400, y: 0 }, // Hp = pisadas que necesita para eliminar
-            { name: "Cavity", hp: 2, x: 800, y: 0 },
-            { name: "Wonder", hp: 1, x: 1200, y: 0 }
-        ],
-        buttonText: ""
+        type: "grum",
+        title: " Grum 30/6/26",
+        text: "Esquivá a la gente y llegá a la mesa ",
+        playerStartX: 50,
+        playerStartY: 300,
+        valuX: 700,        // Dónde te espera la meta
+        valuY: 300,
+        crowdCount: 10     // Cantidad de "bailarines" a esquivar
     },
     3: {
-        type: "nivel 3", // Motor Match-3 Paramétrico
-        title: " Grum ", // Porlovisto en este numero lo que hacemos es colocar atributos de una clase
-        subtitle: " Colocar Subtitulo",
+        type: "nivel 2", //
+        title: " BackRooms", // 
+        subtitle: " Sin Salida ",
         rows: 6,
         cols: 6,
         moves: 4,
@@ -33,8 +28,11 @@ const GAME_LEVELS = {
         mode: "jelly"
     },
     4: {
-        type: "lobby",
-        title: " Lobby",
-        text: " Hola soy tu avatar ",
+        type: "nivel 3",
+        avatar: "dear-daniel",
+        title: " ??? ",
+        text: `[INFO] Sin escribir `,
+        buttonText: " Sin Escribir "
+
     }
 };

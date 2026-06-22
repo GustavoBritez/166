@@ -12,9 +12,9 @@
 
     <div id="loadingScreen" class="loading-screen">
         <div class="loader-content">
-            <div class="daniel-oficial-avatar loader-avatar"></div>
+            <div id="imagenCarga" class="pantalla-carga-base CargaKitty-page"></div>
             <div class="spinner"></div>
-            <p>Iniciando motor dinámico... 🚀</p>
+            <p> Cargando... </p>
         </div>
     </div>
 
@@ -22,18 +22,50 @@
 
     <div class="success-screen" id="successScreen" style="display: none;">
         <div class="party-lights"></div>
-        <h2>¡Código Ejecutado! 🚀</h2>
-        <p class="highlight">Acción confirmada con éxito.</p>
-        <p>Coordinemos el horario por WhatsApp y dejamos el script corriendo. ¡Nos vemos el finde, Valu! 😎</p>
+        <h2>¡Códig 🚀</h2>
+        <p class="highlight"></p>
+        <p> 😎</p>
     </div>
 
-    <script src="Niveles/levels.js"></script>
-    <script src="Niveles/Nivel_2.js"></script>
-    <script src="Service/GameFactory.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <script>
+        (function () {
+            const version = Date.now();
+            const scriptsAInyectar = [
+                "./Niveles/levels.js",
+                "./Niveles/Nivel_1.js",
+                "./Service/GameFactory.js",
+                "AppOrchestrator.js"
+            ];
 
-    <script src="classes.js"></script>
-    <script src="AppOrchestrator.js"></script>
+            let scriptsCargados = 0; // Nuestro contador de descargas
 
+            scriptsAInyectar.forEach(src => {
+                let scriptEl = document.createElement('script');
+                scriptEl.src = src + "?v=" + version;
+                scriptEl.async = false;
+
+                // 🔥 LA IGNICIÓN: ¿Qué hacer cuando ESTE archivo termine de bajar?
+                scriptEl.onload = () => {
+                    scriptsCargados++;
+
+                    // Si ya cargaron todos los de la lista...
+                    if (scriptsCargados === scriptsAInyectar.length) {
+                        console.log("Cargador: Todos los scripts listos. ¡Encendiendo el Orquestador!");
+
+                        // GIRAMOS LA LLAVE
+                        window.juego = new AppOrchestrator();
+
+                        // OJO: Si tu Orquestador necesita un método para arrancar, 
+                        // como window.juego.init() o window.juego.start(), descomentalo acá abajo:
+                        // window.juego.init(); 
+                    }
+                };
+
+                document.body.appendChild(scriptEl);
+            });
+        })();
+    </script>
 </body>
 
 </html>

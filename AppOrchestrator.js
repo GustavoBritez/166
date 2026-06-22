@@ -1,33 +1,51 @@
 class AppOrchestrator {
     constructor() {
-        // 1. Capturamos el contenedor único (donde limpiaremos e inyectaremos las pantallas)
         this.container = document.getElementById('storyContainer');
         this.loadingScreen = document.getElementById('loadingScreen');
         this.successScreen = document.getElementById('successScreen');
 
-        // Estado global del juego
-        this.currentLevelId = 1; // Nivel de arranque (Acordate de pasarlo a 1 si querés arrancar desde el principio)
-        this.activeEngine = null; // Acá se guardará el motor de turno 
+        this.currentLevelId = 1;
+        this.activeEngine = null;
 
         this.boot();
     }
 
     boot() {
         this.showLoadingScreen();
+        console.log("Iniciando juego"); // Aviso en consola
 
-        // Espera a que el navegador termine de descargar los assets (fichas, imágenes)
         window.addEventListener('load', () => {
+            // Carga inicial: Dura exactamente 3 segundos (3000 ms)
             setTimeout(() => {
+                this.renderCurrentLevel(); // Armamos el Lobby por detrás del telón
+
                 this.loadingScreen.classList.add('fade-out');
                 this.container.style.display = 'block';
 
-                // 🔥 DISPARAMOS EL PRIMER NIVEL DE NUESTRA BASE DE DATOS
-                this.renderCurrentLevel();
-            }, 1200);
+                // Limpiamos la pantalla de carga del DOM para que no bloquee los botones
+                setTimeout(() => {
+                    this.loadingScreen.style.display = 'none';
+                    this.loadingScreen.classList.remove('fade-out');
+                }, 500);
+
+            }, 3000);
         });
     }
 
-    showLoadingScreen() {
+    showLoadingScreen(personaje = 'kitty') {
+        const imagenCargaDiv = document.getElementById('imagenCarga');
+
+        // Limpiamos las clases anteriores por las dudas
+        imagenCargaDiv.classList.remove('CargaKitty-page', 'CargaDearDaniels-page');
+
+        // Decidimos cuál inyectar
+        if (personaje === 'daniel') {
+            imagenCargaDiv.classList.add('CargaDearDaniels-page');
+        } else {
+            imagenCargaDiv.classList.add('CargaKitty-page');
+        }
+
+        // Mostramos la pantalla
         this.loadingScreen.style.display = 'flex';
         this.container.style.display = 'none';
         this.successScreen.style.display = 'none';
@@ -41,11 +59,12 @@ class AppOrchestrator {
 
         const levelData = GAME_LEVELS[this.currentLevelId];
         if (!levelData) return;
+
         const gameObject = GameFactory.build(
             levelData.type,
             levelData,
             () => this.goToLobby(),
-            (id) => this.jumpToLevel(id)
+            (id, personaje) => this.jumpToLevel(id, personaje)
         );
 
         if (!gameObject) return;
@@ -54,26 +73,53 @@ class AppOrchestrator {
         this.activeEngine = gameObject.init();
     }
 
-    // Método cuando un minijuego grita "gané": lo mandamos al Lobby (Nivel 4)
+    jumpToLevel(id, personaje = 'kitty') {
+        console.log(`Cargando nivel ${id} con pantalla de ${personaje}`);
+        this.showLoadingScreen(personaje);
+
+        setTimeout(() => {
+            this.currentLevelId = id;
+            this.renderCurrentLevel();
+
+            // 🔥 LA LÍNEA MÁGICA: Prendemos la luz del juego de nuevo
+            this.container.style.display = 'block';
+
+            this.loadingScreen.classList.add('fade-out');
+            setTimeout(() => {
+                this.loadingScreen.style.display = 'none';
+                this.loadingScreen.classList.remove('fade-out');
+            }, 500);
+
+        }, 2000);
+    }
+    // =========================================================
+    // 🎬 SISTEMA DE TRANSICIONES ENTRE NIVELES (El Telón)
+    // =========================================================
+
     goToLobby() {
-        console.log("Nivel completado. Regresando al centro de comandos...");
-        this.currentLevelId = 4; // Poné acá el ID exacto donde definiste tu lobby en levels.js
-        this.renderCurrentLevel();
+        console.log("Regresando al Lobby...");
+        this.showLoadingScreen('kitty');
+
+        setTimeout(() => {
+            this.currentLevelId = 1;
+            this.renderCurrentLevel();
+
+            this.container.style.display = 'block';
+
+            this.loadingScreen.classList.add('fade-out');
+            setTimeout(() => {
+                this.loadingScreen.style.display = 'none';
+                this.loadingScreen.classList.remove('fade-out');
+            }, 500);
+
+        }, 1200);
     }
 
-    // Método cuando el menú dice "eligieron este nivel"
-    jumpToLevel(id) {
-        console.log(`Cargando nivel seleccionado: ${id}`);
-        this.currentLevelId = id;
-        this.renderCurrentLevel();
-    }
-    // Avanza el puntero de la base de datos y redibuja la interfaz
     nextLevel() {
         this.currentLevelId++;
         this.renderCurrentLevel();
     }
 
-    // Cierre del ciclo de vida (Muestra la pantalla rosa final)
     triggerSuccessState() {
         this.container.style.display = 'none';
         this.successScreen.style.display = 'flex';

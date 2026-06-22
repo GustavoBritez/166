@@ -14,7 +14,6 @@ class GameFactory {
                             </div>
                         </div>`,
                     init: () => {
-                        // Usamos el callback para avanzar cuando tocan "Continuar"
                         document.getElementById('btnNext').addEventListener('click', alTerminarNivel);
                         return null;
                     }
@@ -29,70 +28,150 @@ class GameFactory {
                         </div>`,
                     init: () => {
                         const canvasEl = document.getElementById('marioCanvas');
-                        // Le pasamos 'alTerminarNivel' al motor para que avise cuando gane
-                        const engine = new MarioEngine(canvasEl, datosNivel, alTerminarNivel);
+                        const engine = new Nivel_2(canvasEl, datosNivel, alTerminarNivel);
                         engine.start();
                         return engine;
                     }
                 };
 
-            case "match3":
+            case "nivel 3":
                 return {
                     template: `
-                        <div class="slide active">
-                            <div class="game-header">
-                                <h2>${datosNivel.title}</h2>
-                                <p>Movimientos: <span id="movesCount">${datosNivel.moves}</span></p>
+                        <div class="story-container">
+                            <div class="avatar-marco">
+                                <div class="daniel-oficial-avatar"></div>
                             </div>
-                            <div class="grid-container"><div id="grid" class="grid"></div></div>
+                            
+                            <div class="story-card">
+                                <h1>¡Próximamente!</h1>
+                                <p>Dear Daniel todavía está programando las físicas de este nivel. ¡Vuelve pronto!</p>
+                                <button class="btn btn-acepto" id="btnVolverLobby">Volver al Menú</button>
+                            </div>
                         </div>`,
                     init: () => {
-                        const gridEl = document.getElementById('grid');
-                        const movesEl = document.getElementById('movesCount');
-                        const engine = new BoardEngine(gridEl, movesEl, datosNivel, alTerminarNivel);
-                        engine.start();
-                        return engine;
+                        console.log("Nivel 3 cargado. Iniciando temporizador de regreso...");
+
+                        // 1. EL BOTÓN MANUAL (Siempre dejalo activo como plan B)
+                        const btnVolver = document.getElementById('btnVolverLobby');
+                        btnVolver.addEventListener('click', () => {
+                            console.log("El jugador forzó el regreso haciendo clic.");
+                            alTerminarNivel();
+                        });
+
+                        // 2. EL REGRESO AUTOMÁTICO (Subimos a 4000ms para que tengan tiempo de leer)
+                        setTimeout(() => {
+                            console.log("Se acabó el tiempo automático. Regresando...");
+                            // Hacemos clic virtualmente en el botón para unificar la lógica
+                            btnVolver.click();
+                        }, 4000);
+
+                        return null;
                     }
                 };
-
             case "lobby":
                 let menuHtml = `
-                    <div class="lobby-container">
-                        <h1>🏰 ${datosNivel.title}</h1>
-                        <p class="lobby-avatar-text">✨ ${datosNivel.text} ✨</p>
-                        <div class="levels-grid">
+                    <div class="lobby-pantalla">
+                        <div class="lobby-top">
+                            <div class="avatar-marco" style="width: 150px; height: 150px; margin-bottom: 0;">
+                                <div class="daniel-oficial-avatar" style="width: 110px; height: 110px;"></div>
+                            </div>
+                            <div class="lobby-recursos">
+                                <div class="recurso-item"><div class="recurso-circulo">☁️</div><span class="recurso-cantidad">150</span></div>
+                                <div class="recurso-item"><div class="recurso-circulo">☕</div><span class="recurso-cantidad">5</span></div>
+                            </div>
+                        </div>
+
+                        <div class="lobby-bottom">
+                            <button class="btn-jugar" id="btnJugarLobby">JUGAR</button>
+                        </div>
+                    </div>
+
+                    <div class="modal-overlay" id="modalNiveles">
+                        <div class="modal-menu">
+                            <button class="btn-cerrar-modal" id="btnCerrarModal">✖</button>
+                            <h2 class="modal-titulo">Elegí tu destino</h2>
+                            
+                            <button class="btn-nivel" data-id="2">Nivel 1: Historia</button>
+                            <button class="btn-nivel" data-id="3">Nivel 2: Plataformas</button>
+                            <button class="btn-nivel" data-id="4">Nivel 3: ¿?</button>
+                        </div>
+                    </div>
+
+                    <div id="cartelAviso" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #ff6584; color: white; padding: 12px 24px; border-radius: 12px; font-weight: bold; font-size: 1.2rem; opacity: 0; visibility: hidden; z-index: 999; box-shadow: 0 4px 15px rgba(209, 26, 91, 0.4);">
+                        🚧 Nivel no escrito aún
+                    </div>
                 `;
-
-                // Recorremos los niveles para armar los botones del menú
-                Object.keys(GAME_LEVELS).forEach(id => {
-                    const lvl = GAME_LEVELS[id];
-                    if (lvl.type !== "lobby") {
-                        menuHtml += `
-                            <button class="btn btn-level-select" data-id="${id}">
-                                Nivel ${id}: ${lvl.title}
-                            </button>
-                        `;
-                    }
-                });
-
-                menuHtml += `</div></div>`;
 
                 return {
                     template: menuHtml,
                     init: () => {
-                        const botones = document.querySelectorAll('.btn-level-select');
-                        botones.forEach(btn => {
+                        // Animaciones de entrada del Lobby
+                        gsap.from(".avatar-marco", { duration: 0.8, x: -150, opacity: 0, ease: "power3.out" });
+                        gsap.from(".recurso-item", { duration: 0.6, x: 100, opacity: 0, stagger: 0.2, ease: "back.out(1.2)", delay: 0.2 });
+                        gsap.from(".lobby-bottom", { duration: 1, y: 100, opacity: 0, ease: "elastic.out(1, 0.5)", delay: 0.5 });
+
+                        // Capturamos los elementos
+                        const modal = document.getElementById('modalNiveles');
+                        const btnJugar = document.getElementById('btnJugarLobby');
+                        const btnCerrar = document.getElementById('btnCerrarModal');
+                        const botonesNivel = document.querySelectorAll('.btn-nivel');
+                        const cartel = document.getElementById('cartelAviso'); // Capturamos el cartel acá
+
+                        // 🎬 ABRIR MODAL CON GSAP
+                        btnJugar.addEventListener('click', () => {
+                            gsap.to(modal, { duration: 0.2, autoAlpha: 1, ease: "power2.out" });
+                            gsap.fromTo(".modal-menu",
+                                { scale: 0.5, y: 50 },
+                                { duration: 0.4, scale: 1, y: 0, ease: "back.out(1.5)" }
+                            );
+                        });
+
+                        //  CERRAR MODAL CON GSAP
+                        btnCerrar.addEventListener('click', () => {
+                            gsap.to(modal, { duration: 0.3, autoAlpha: 0, ease: "power2.in" });
+                        });
+
+                        // SALTAR AL NIVEL SELECCIONADO (O MOSTRAR CARTEL)
+                        botonesNivel.forEach(btn => {
                             btn.addEventListener('click', (e) => {
-                                const idSeleccionado = e.target.getAttribute('data-id');
-                                // 🔥 ACÁ USAMOS EL CUARTO PARÁMETRO:
-                                // Le manda el ID del nivel clickeado a 'jumpToLevel(id)' en el orquestador
-                                alSeleccionarNivel(Number(idSeleccionado));
+                                // 1. Leemos a qué puerta quiere ir el jugador
+                                const idDestino = Number(e.target.getAttribute('data-id'));
+
+                                // 2. VALIDACIÓN TEMPRANA: Si es el Nivel 3 (ID 4)
+                                if (idDestino === 4) {
+                                    // Mostramos el cartel flotante
+                                    gsap.to(cartel, { duration: 0.3, autoAlpha: 1, y: 20, ease: "back.out(2)" });
+
+                                    // Lo escondemos a los 2 segundos
+                                    gsap.to(cartel, { duration: 0.3, autoAlpha: 0, y: 0, delay: 2 });
+
+                                    // Cortamos la función ACÁ para que no viaje al Orquestador
+                                    return;
+                                }
+                                gsap.to(modal, { duration: 0.2, autoAlpha: 0 });
+                                alSeleccionarNivel(idDestino, 'kitty');
                             });
                         });
+
                         return null;
                     }
                 };
-
+            case "grum":
+                return {
+                    template: `
+                        <div class="slide active" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #1a1a2e;">
+                            <h2 style="color: #ffb7c5; margin-bottom: 10px;">${datosNivel.title}</h2>
+                            <canvas id="clubCanvas" width="800" height="600" style="background: #16213e; border: 4px solid #d11a5b; border-radius: 12px; box-shadow: 0 0 20px rgba(209,26,91,0.3);"></canvas>
+                            <p style="color: white; margin-top: 15px; font-weight: bold;">Usa W A S D o las Flechas para moverte</p>
+                        </div>`,
+                    init: () => {
+                        const canvasEl = document.getElementById('clubCanvas');
+                        // Instanciamos el nuevo motor pasándole el canvas y la config
+                        const engine = new Nivel_1(canvasEl, datosNivel, alTerminarNivel);
+                        engine.start();
+                        return engine; // Devolvemos el motor para que el Orquestador lo pueda destruir después
+                    }
+                };
             default:
                 console.error(`La Fábrica no sabe cómo construir el juego: ${tipo}`);
                 return null;
