@@ -5,12 +5,25 @@ class GameFactory {
             case "nivel 1":
                 return {
                     template: `
-                        <div class="slide active">
-                            <div class="daniel-oficial-avatar ${datosNivel.avatar}"></div>
-                            <div class="story-card">
-                                <h1>${datosNivel.title}</h1>
-                                <p>${datosNivel.text}</p>
-                                <button class="btn btn-next" id="btnNext">${datosNivel.buttonText}</button>
+                        <div class="slide active" style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #1a1a2e; overflow: hidden;">
+                            <h2 style="color: #ffb7c5; margin-bottom: 10px;">${datosNivel.title}</h2>
+                            
+                            <canvas id="clubCanvas" width="800" height="600" style="background: #16213e; border: 4px solid #d11a5b; border-radius: 12px; max-width: 100%; max-height: 70vh;"></canvas>
+                            
+                            <div id="mobileControls" style="display: flex; width: 100%; max-width: 800px; justify-content: space-between; padding: 20px; position: absolute; bottom: 0; box-sizing: border-box; z-index: 10; touch-action: none;">
+                                
+                                <div style="display: grid; grid-template-columns: 60px 60px 60px; grid-gap: 5px;">
+                                    <div></div>
+                                    <button id="btnW" style="height: 60px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 10px; color: white; font-weight: bold; font-size: 20px; touch-action: none;">W</button>
+                                    <div></div>
+                                    <button id="btnA" style="height: 60px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 10px; color: white; font-weight: bold; font-size: 20px; touch-action: none;">A</button>
+                                    <button id="btnS" style="height: 60px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 10px; color: white; font-weight: bold; font-size: 20px; touch-action: none;">S</button>
+                                    <button id="btnD" style="height: 60px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 10px; color: white; font-weight: bold; font-size: 20px; touch-action: none;">D</button>
+                                </div>
+
+                                <div style="display: flex; align-items: flex-end;">
+                                    <button id="btnC" style="width: 80px; height: 80px; background: rgba(52,152,219,0.4); border: 2px solid #3498db; border-radius: 50%; color: white; font-weight: bold; font-size: 16px; touch-action: none;">SPRINT</button>
+                                </div>
                             </div>
                         </div>`,
                     init: () => {

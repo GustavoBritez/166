@@ -13,10 +13,10 @@ class Nivel_1 {
             pozo: new Image(),
             win: new Image()
         };
-        this.imagenes.pared.src = './Assets/img/Pared.png';
-        this.imagenes.reja.src = './Assets/img/Reja.png';
-        this.imagenes.pozo.src = './Assets/img/Pozo.png';
-        this.imagenes.win.src = './Assets/img/DearDaniel_Win.png';
+        this.imagenes.pared.src = './Assets/img/Nivel_1/muro.png';
+        this.imagenes.reja.src = './Assets/img/Nivel_1/Reja.png';
+        this.imagenes.pozo.src = './Assets/img/Nivel_1/Pozo.png';
+        this.imagenes.win.src = './Assets/img/DearDaniel_Base.svg';
 
         // 2. ESTADO DEL JUGADOR
         this.player = {
@@ -55,19 +55,22 @@ class Nivel_1 {
     }
 
     update() {
-        // Reducir temporizador de invulnerabilidad
+        // 🔥 SOLUCIÓN 1: El reloj de invulnerabilidad (Se había borrado por accidente)
+        // Esto le resta 1 en cada frame. Cuando llega a 0, podés volver a recibir daño.
+        if (this.player.invulnerable > 0) {
+            this.player.invulnerable--;
+        }
+
         // --- MOVIMIENTO DEL JUGADOR CON PREDICCIÓN DE COLISIÓN ---
         let nextX = this.player.x;
         let nextY = this.player.y;
-
-        // 🔥 LÓGICA DE SPRINT: Si tocás la 'C', la velocidad pasa de 5 a 9
         let currentSpeed = this.player.speed;
+
         if (this.keys['c'] || this.keys['C']) {
             currentSpeed = 9;
-            // Podés cambiarle el color temporalmente para que se note el "turbo"
-            this.player.color = '#00ffff'; // Celeste brillante
+            this.player.color = '#00ffff';
         } else {
-            this.player.color = '#3498db'; // Azul normal
+            this.player.color = '#3498db';
         }
 
         if (this.keys['ArrowUp'] || this.keys['w'] || this.keys['W']) nextY -= currentSpeed;
@@ -75,56 +78,89 @@ class Nivel_1 {
         if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) nextX -= currentSpeed;
         if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) nextX += currentSpeed;
 
-        // Límites del mapa
+        // Límites del mapa para el jugador
         if (nextX < 0) nextX = 0;
         if (nextY < 0) nextY = 0;
         if (nextX + this.player.w > this.canvas.width) nextX = this.canvas.width - this.player.w;
         if (nextY + this.player.h > this.canvas.height) nextY = this.canvas.height - this.player.h;
 
-        // Caja de colisión futura
+        // Caja de colisión futura del JUGADOR
         let playerFutureRect = { x: nextX, y: nextY, w: this.player.w, h: this.player.h };
         let chocoContraFisica = false;
 
-        // Verificar colisión contra obstáculos
         for (let obs of this.config.obstaculos) {
             if (this.checkCollision(playerFutureRect, obs)) {
-                chocoContraFisica = true; // Es sólido, no podemos avanzar
+                chocoContraFisica = true;
                 this.aplicarEfectoObstaculo(obs.tipo);
-                break; // Cortamos el bucle, ya chocamos
+                break;
             }
         }
 
-        // Si el camino está libre, avanzamos realmente
         if (!chocoContraFisica) {
             this.player.x = nextX;
             this.player.y = nextY;
         }
 
-        // --- LÓGICA DE ENEMIGOS E INTELIGENCIA ARTIFICIAL ---
+        // --- SOLUCIÓN 2: LÓGICA DE ENEMIGOS (Ahora respetan las paredes) ---
         this.enemigos.forEach(e => {
             if (e.tipo === "Baku") {
-                e.x += e.dx;
-                // Si toca los bordes, rebota invirtiendo su velocidad
-                if (e.x <= 0 || e.x + e.w >= this.canvas.width) e.dx *= -1;
+                // Baku preajusta su futuro en el eje X
+                let futureEnemyRect = { x: e.x + e.dx, y: e.y, w: e.w, h: e.h };
+                let chocaFisica = false;
+
+                // Revisamos si en su próximo paso hay una pared o reja
+                for (let obs of this.config.obstaculos) {
+                    if (this.checkCollision(futureEnemyRect, obs)) { chocaFisica = true; break; }
+                }
+
+                // Si choca contra obstáculo o contra el borde de la pantalla, rebota
+                if (chocaFisica || futureEnemyRect.x <= 0 || futureEnemyRect.x + e.w >= this.canvas.width) {
+                    e.dx *= -1;
+                } else {
+                    e.x += e.dx;
+                }
             }
             else if (e.tipo === "Berry") {
-                e.y += e.dy;
-                if (e.y <= 0 || e.y + e.h >= this.canvas.height) e.dy *= -1;
+                // Berry preajusta su futuro en el eje Y
+                let futureEnemyRect = { x: e.x, y: e.y + e.dy, w: e.w, h: e.h };
+                let chocaFisica = false;
+
+                for (let obs of this.config.obstaculos) {
+                    if (this.checkCollision(futureEnemyRect, obs)) { chocaFisica = true; break; }
+                }
+
+                if (chocaFisica || futureEnemyRect.y <= 0 || futureEnemyRect.y + e.h >= this.canvas.height) {
+                    e.dy *= -1;
+                } else {
+                    e.y += e.dy;
+                }
             }
             else if (e.tipo === "Badtz") {
-                // Teorema de Pitágoras para calcular distancia al jugador
                 let dist = Math.hypot(this.player.x - e.x, this.player.y - e.y);
-                if (dist < 250) { // Radio de visión
-                    if (e.x < this.player.x) e.x += e.speed;
-                    if (e.x > this.player.x) e.x -= e.speed;
-                    if (e.y < this.player.y) e.y += e.speed;
-                    if (e.y > this.player.y) e.y -= e.speed;
+                if (dist < 250) {
+                    // Badtz calcula su paso hacia vos, pero frena si hay pared
+                    let nextEx = e.x, nextEy = e.y;
+                    if (e.x < this.player.x) nextEx += e.speed;
+                    if (e.x > this.player.x) nextEx -= e.speed;
+                    if (e.y < this.player.y) nextEy += e.speed;
+                    if (e.y > this.player.y) nextEy -= e.speed;
+
+                    let futureEnemyRect = { x: nextEx, y: nextEy, w: e.w, h: e.h };
+                    let chocaFisica = false;
+                    for (let obs of this.config.obstaculos) {
+                        if (this.checkCollision(futureEnemyRect, obs)) { chocaFisica = true; break; }
+                    }
+
+                    if (!chocaFisica) {
+                        e.x = nextEx;
+                        e.y = nextEy;
+                    }
                 }
             }
 
-            // ¿El enemigo tocó al jugador actual?
+            // ¿El enemigo tocó al jugador?
             if (this.checkCollision(this.player, e)) {
-                this.aplicarEfectoObstaculo("enemigo"); // Funciona igual que la reja
+                this.aplicarEfectoObstaculo("enemigo");
             }
         });
 
@@ -144,12 +180,16 @@ class Nivel_1 {
         }
         else if ((tipo === "reja" || tipo === "enemigo") && this.player.invulnerable <= 0) {
             this.player.hp -= 1;
-            this.player.invulnerable = 60; // 1 segundo de invulnerabilidad (a 60 FPS)
+            this.player.invulnerable = 60;
+
             console.log(`¡Auch! Vidas restantes: ${this.player.hp}`);
 
             if (this.player.hp <= 0) {
                 console.log("Sin vidas. Game Over.");
                 this.reiniciarNivel();
+            } else {
+                this.player.x = this.config.playerStartX;
+                this.player.y = this.config.playerStartY;
             }
         }
     }
