@@ -1,0 +1,55 @@
+
+.daniel-oficial-avatar {
+    width: 180px;
+    height: 180px;
+    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.15));
+    animation: floatEffect 3s ease-in-out infinite alternate;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    background-image: url('../Assets/img/DearDaniel_Base.svg');
+}
+
+.kitty-oficial-avatar {
+    width: 180px;
+    height: 180px;
+    filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.15));
+    animation: floatEffect 3s ease-in-out infinite alternate;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    background-image: url('../Assets/img/Kitty_Base.png');
+}
+
+.daniel-head {
+    transform-origin: 50px 55px;
+    animation: headTilt 3s ease-in-out infinite alternate;
+}
+
+@keyframes headTilt {
+    0% {
+        transform: rotate(-4deg);
+    }
+
+    100% {
+        transform: rotate(4deg);
+    }
+}
+
+.daniel-eyes {
+    transform-origin: 50px 40px;
+    animation: blinkEffect 4s infinite linear;
+}
+
+@keyframes blinkEffect {
+
+    0%,
+    95%,
+    100% {
+        transform: scaleY(1);
+    }
+
+    2.5% {
+        transform: scaleY(0.1);
+    }
+}

@@ -34,8 +34,10 @@ class AudioManager {
     }
 }
 
-// Ejemplo de uso al iniciar el juego:
 const misTemas = [
-    './Assets/audio/Lobby_Music/Crystal_Castles_Leni.mp3'
+    './Assets/audio/Lobby_Music/JustForMe.mp3',
+    './Assets/audio/Lobby_Music/Lana_Del_Rey_Video_Games.mp3',
+    './Assets/audio/Lobby_Music/Crystal_Castles_Leni.mp3',
+    './Assets/audio/Lobby_Mussic/The_Neighbourhood_A_Little_Death.mp3'
 ];
 window.audioManager = new AudioManager(misTemas);

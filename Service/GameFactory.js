@@ -51,8 +51,12 @@ class GameFactory {
                 return {
                     template: `
                         <div class="story-container">
-                            <div class="avatar-marco">
-                                <div class="daniel-oficial-avatar"></div>
+                            <div class="avatar-marco" style="width: 150px; height: 150px; margin-bottom: 0; position: relative;">
+                                <div id="jugadorAvatar" class="daniel-oficial-avatar" style="width: 110px; height: 110px;"></div>
+                                
+                                <button id="btnCambiarAvatar" style="position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); background: #ff6584; color: white; border: none; border-radius: 20px; padding: 4px 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 10;">
+                                    🔄 
+                                </button>
                             </div>
                             
                             <div class="story-card">
@@ -86,9 +90,15 @@ class GameFactory {
                 let menuHtml = `
                     <div class="lobby-pantalla">
                         <div class="lobby-top">
-                            <div class="avatar-marco" style="width: 150px; height: 150px; margin-bottom: 0;">
-                                <div class="daniel-oficial-avatar" style="width: 110px; height: 110px;"></div>
+                            
+                            <div class="avatar-marco" style="width: 150px; height: 150px; margin-bottom: 0; position: relative;">
+                                <div id="jugadorAvatar" class="daniel-oficial-avatar" style="width: 110px; height: 110px;"></div>
+                                
+                                <button id="btnCambiarAvatar" style="position: absolute; bottom: -15px; left: 50%; transform: translateX(-50%); background: #ff6584; color: white; border: none; border-radius: 20px; padding: 4px 12px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.2); z-index: 10;">
+                                    🔄 
+                                </button>
                             </div>
+
                             <div class="lobby-recursos">
                                 <div class="recurso-item"><div class="recurso-circulo">☁️</div><span class="recurso-cantidad">150</span></div>
                                 <div class="recurso-item"><div class="recurso-circulo">☕</div><span class="recurso-cantidad">5</span></div>
@@ -101,14 +111,15 @@ class GameFactory {
                         </div>
 
                         <div class="lobby-bottom">
-                            <button class="btn-jugar" id="btnJugarLobby">JUGAR</button>
+                            <button class="btn-historia" id="btnHistoriaLobby"> Historia </button>
+                            <button class="btn-puzzle" id="btnPuzzleLobby"> Puzzle </button>
                         </div>
                     </div>
 
                     <div class="modal-overlay" id="modalNiveles" style="opacity: 0; visibility: hidden;">
                         <div class="modal-menu">
                             <button class="btn-cerrar-modal" id="btnCerrarModal">✖</button>
-                            <h2 class="modal-titulo">Elegí tu destino</h2>
+                            <h2 class="modal-titulo"> Que haremos hoy ? </h2>
                             
                             <button class="btn-nivel" data-id="2">Nivel 1: Historia</button>
                             <button class="btn-nivel" data-id="3">Nivel 2: Plataformas</button>
@@ -123,16 +134,22 @@ class GameFactory {
 
                 return {
                     template: menuHtml,
+
                     init: () => {
                         setTimeout(() => {
+                            // 1. Mapeamos todos los elementos del DOM
                             const elementos = {
                                 'modalNiveles': document.getElementById('modalNiveles'),
-                                'btnJugarLobby': document.getElementById('btnJugarLobby'),
+                                'btnHistoriaLobby': document.getElementById('btnHistoriaLobby'),
+                                'btnPuzzleLobby': document.getElementById('btnPuzzleLobby'), // Nuevo botón Puzzle
                                 'btnCerrarModal': document.getElementById('btnCerrarModal'),
                                 'btnMusic': document.getElementById('btnMusic'),
-                                'volRange': document.getElementById('volRange')
+                                'volRange': document.getElementById('volRange'),
+                                'avatarDiv': document.getElementById('jugadorAvatar'),
+                                'btnCambiarAvatar': document.getElementById('btnCambiarAvatar')
                             };
 
+                            // 2. Escudo de seguridad para evitar errores de null
                             for (const [nombre, elemento] of Object.entries(elementos)) {
                                 if (!elemento) {
                                     console.error(`¡ERROR! El elemento con ID "${nombre}" no se encuentra en el DOM.`);
@@ -140,10 +157,46 @@ class GameFactory {
                                 }
                             }
 
-                            const { modalNiveles: modal, btnJugarLobby: btnJugar, btnCerrarModal: btnCerrar, btnMusic, volRange } = elementos;
+                            // 3. Extraemos TODAS las variables
+                            const { 
+                                modalNiveles: modal, 
+                                btnHistoriaLobby: btnJugar, 
+                                btnPuzzleLobby: btnPuzzle, 
+                                btnCerrarModal: btnCerrar, 
+                                btnMusic, 
+                                volRange, 
+                                avatarDiv, 
+                                btnCambiarAvatar 
+                            } = elementos;
+                            
                             const cartel = document.getElementById('cartelAviso');
                             const botonesNivel = document.querySelectorAll('.btn-nivel');
 
+                            // --- LÓGICA DE AVATARES ---
+                            if (avatarDiv && btnCambiarAvatar) {
+                                const catalogoAvatares = ['daniel-oficial-avatar', 'kitty-oficial-avatar'];
+                                
+                                let avatarGuardado = localStorage.getItem('avatarPreferido') || 'daniel-oficial-avatar';
+                                avatarDiv.className = avatarGuardado;
+
+                                btnCambiarAvatar.addEventListener('click', () => {
+                                    let indiceActual = catalogoAvatares.indexOf(avatarGuardado);
+                                    
+                                    indiceActual = (indiceActual + 1) % catalogoAvatares.length;
+                                    avatarGuardado = catalogoAvatares[indiceActual];
+                                    
+                                    avatarDiv.className = avatarGuardado;
+                                    
+                                    localStorage.setItem('avatarPreferido', avatarGuardado);
+
+                                    gsap.fromTo(avatarDiv, 
+                                        { scale: 0.8, rotation: -10 }, 
+                                        { duration: 0.4, scale: 1, rotation: 0, ease: "back.out(1.5)" }
+                                    );
+                                });
+                            }
+
+                            // --- LÓGICA DEL BOTÓN HISTORIA (Abre el Modal) ---
                             btnJugar.addEventListener('click', () => {
                                 gsap.to(modal, { duration: 0.2, autoAlpha: 1, ease: "power2.out" });
                                 gsap.fromTo(".modal-menu",
@@ -152,6 +205,19 @@ class GameFactory {
                                 );
                             });
 
+                            // --- LÓGICA DEL BOTÓN PUZZLE ---
+                            btnPuzzle.addEventListener('click', () => {
+                                gsap.to(".lobby-pantalla", { 
+                                    duration: 0.5, 
+                                    opacity: 0, 
+                                    onComplete: () => {
+                                        console.log("¡Yendo a los Puzzles!");
+                                        // window.juego.renderCurrentLevel('puzzle'); // Descomentar cuando exista el nivel
+                                    }
+                                });
+                            });
+
+                            // --- LÓGICA DE AUDIO ---
                             btnMusic.addEventListener('click', () => {
                                 const playing = window.audioManager.togglePlay();
                                 btnMusic.innerText = playing ? "🎵 Music ON" : "🔇 Music OFF";
@@ -161,16 +227,18 @@ class GameFactory {
                                 window.audioManager.setVolume(e.target.value);
                             });
 
+                            // --- CERRAR MODAL ---
                             btnCerrar.addEventListener('click', () => {
                                 gsap.to(modal, { duration: 0.3, autoAlpha: 0, ease: "power2.in" });
                             });
 
+                            // --- SALTAR AL NIVEL SELECCIONADO DESDE EL MODAL ---
                             botonesNivel.forEach(btn => {
                                 btn.addEventListener('click', (e) => {
                                     const idDestino = Number(e.target.getAttribute('data-id'));
 
                                     if (idDestino === 4) {
-                                        if (cartel) { // Validamos que el cartel exista por seguridad
+                                        if (cartel) { 
                                             gsap.to(cartel, { duration: 0.3, autoAlpha: 1, y: 20, ease: "back.out(2)" });
                                             gsap.to(cartel, { duration: 0.3, autoAlpha: 0, y: 0, delay: 2 });
                                         }
@@ -178,13 +246,14 @@ class GameFactory {
                                     }
 
                                     gsap.to(modal, { duration: 0.2, autoAlpha: 0 });
+                                    // Asumimos que alSeleccionarNivel está definida globalmente en tu Orquestador
                                     alSeleccionarNivel(idDestino, 'kitty');
                                 });
                             });
 
-                        }, 0); // 🔥 2. ACÁ CERRAMOS EL SETTIMEOUT CORRECTAMENTE
+                        }, 0); // 🔥 Cerramos el setTimeout con el 0
 
-                        return null; // 🔥 3. Y ACÁ TERMINA LA FUNCIÓN INIT
+                        return null; 
                     }
                 };
             case "grum":
