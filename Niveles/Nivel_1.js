@@ -1,19 +1,19 @@
 class Nivel_1 {
-    constructor(canvas, config, onWin) {
+    constructor(canvas, config, eventBus) {
         if (!config || !config.matriz || !Array.isArray(config.matriz)) {
             throw new Error("Arquitectura estricta: Nivel abortado por falta de matriz.");
         }
 
         this.canvas = canvas;
         this.config = config;
-        this.onWin = onWin;
+        this.onWin = eventBus;
+        this.eventBus = eventBus; // Guardamos la autopista de comunicación
         this.mapaMatriz = config.matriz.map((fila) => fila.slice());
         this.settings = this.obtenerConfiguracionGlobal();
 
         this.app = new PIXI.Application({
             view: canvas,
-            width: 800,
-            height: 600,
+            resizeTo: window,
             backgroundColor: 0x14121f,
             antialias: true,
             autoDensity: true,
@@ -53,6 +53,7 @@ class Nivel_1 {
         this.lastMoveDirection = { x: 0, y: 0 };
         this.gameOver = false;
         this.victoryTriggered = false;
+        this.isPaused = false;
 
         this.handleKeyDown = (e) => this.onKeyDown(e);
         this.handleKeyUp = (e) => this.onKeyUp(e);
@@ -104,6 +105,24 @@ class Nivel_1 {
 
         if (e.key === ' ' || e.code === 'Space') {
             this.disparar();
+        }
+
+        // 🔥 NUEVO: Detectar tecla Escape
+        if (e.key === 'Escape') {
+            this.togglePause();
+        }
+    }
+
+    // 🔥 NUEVO MÉTODO: Congela la lógica y muestra/oculta el HTML
+    togglePause() {
+        if (this.gameOver) return; // Si ya moriste o ganaste, no podés pausar
+
+        this.isPaused = !this.isPaused; // Invierte el estado (Pausado <-> Activo)
+
+        const menuPausa = document.getElementById('menuPausa');
+        if (menuPausa) {
+            // Activa o apaga la capa en pantalla
+            menuPausa.style.display = this.isPaused ? 'flex' : 'none';
         }
     }
 
@@ -247,7 +266,7 @@ class Nivel_1 {
     }
 
     update(delta) {
-        if (this.gameOver) return;
+        if (this.gameOver || this.isPaused) return;
 
         const dt = delta / this.app.ticker.FPS;
         const velocity = this.calcularVelocidadActual();
@@ -257,17 +276,18 @@ class Nivel_1 {
         this.actualizarProyectiles(dt);
         this.verificarColisionesJugadorEnemigo();
         this.verificarVictoria();
+        this.verificarPortales();
+
         this.actualizarCamara();
-
-        // 🔥 MAGIA DE RENDIMIENTO: Apagamos lo que no se ve
         this.aplicarFrustumCulling();
-
         this.actualizarHud();
     }
 
     aplicarFrustumCulling() {
         // 1. Calculamos dónde está mirando la cámara actualmente
         // Como el "mundo" se mueve en reversa (hacia los negativos), invertimos el signo.
+        if (!this.app || !this.app.screen) return;
+
         const vistaIzquierda = -this.mundo.x;
         const vistaDerecha = -this.mundo.x + this.app.screen.width;
         const vistaArriba = -this.mundo.y;
@@ -441,25 +461,54 @@ class Nivel_1 {
 
     actualizarProyectiles(dt) {
         this.projectiles = this.projectiles.filter((bullet) => {
+            // 1. Movemos la bala matemáticamente
             bullet.x += bullet.dir.x * this.settings.bulletSpeed * dt;
             bullet.y += bullet.dir.y * this.settings.bulletSpeed * dt;
             bullet.sprite.x = bullet.x;
             bullet.sprite.y = bullet.y;
 
+            // 2. Colisión con los bordes del Mundo
             const fueraDeMapa = bullet.x < 0 || bullet.y < 0 || bullet.x > this.worldWidth || bullet.y > this.worldHeight;
             if (fueraDeMapa) {
                 bullet.sprite.destroy();
                 return false;
             }
 
-            const enemyHit = this.enemies.find((enemy) => this.distancia(bullet.x, bullet.y, enemy.x, enemy.y) < this.tileSize * 0.3);
-            if (enemyHit) {
-                enemyHit.sprite.alpha = 0.6;
-                gsap.to(enemyHit.sprite, { duration: 0.12, alpha: 1, repeat: 1, yoyo: true });
+            // 3. 🔥 NUEVO: Colisión con las Paredes del Laberinto
+            // Reutilizamos el mismo sensor que usa Kitty para no atravesar muros
+            if (this.esParedEnPixel(bullet.x, bullet.y)) {
+                bullet.sprite.destroy();
+                return false; // Se elimina la bala
+            }
+
+            // 4. 🔥 MEJORADO: Colisión letal con Enemigos
+            // Buscamos el índice del enemigo chocado para poder borrarlo de la lista
+            const hitIndex = this.enemies.findIndex((enemy) =>
+                this.distancia(bullet.x, bullet.y, enemy.x, enemy.y) < this.tileSize * 0.45 // Hitbox un poco más generosa
+            );
+
+            if (hitIndex !== -1) {
+                const enemyHit = this.enemies[hitIndex];
+
+                // Animación de muerte: se infla y desaparece rápidamente
+                gsap.to(enemyHit.sprite.scale, { x: 1.5, y: 1.5, duration: 0.1 });
+                gsap.to(enemyHit.sprite, {
+                    alpha: 0,
+                    duration: 0.1,
+                    onComplete: () => {
+                        enemyHit.sprite.destroy(); // Lo borramos de la placa de video
+                    }
+                });
+
+                // Lo borramos de la lista lógica para que deje de perseguirnos
+                this.enemies.splice(hitIndex, 1);
+
+                // Destruimos la bala para que no atraviese al enemigo y mate a otro detrás
                 bullet.sprite.destroy();
                 return false;
             }
 
+            // Si no chocó con nada, la bala sigue viviendo
             return true;
         });
     }
@@ -514,21 +563,36 @@ class Nivel_1 {
         }
     }
 
+    verificarPortales() {
+        const tileX = Math.floor(this.player.x / this.tileSize);
+        const tileY = Math.floor(this.player.y / this.tileSize);
+        const celda = this.mapaMatriz[tileY]?.[tileX];
+
+        if (celda === 8) {
+            this.gameOver = true;
+            // Magia directa al nivel 3
+            window.orquestador.transitionTo(3);
+        }
+    }
     terminarJuego(victoria) {
         if (this.gameOver) return;
         this.gameOver = true;
-        this.destroy();
 
+        // Ejecutamos la función que nos mandó el Factory
         if (victoria && typeof this.onWin === 'function') {
             this.onWin();
+        } else if (!victoria) {
+            // Si perdés, podés llamar directo al orquestador global (opción rápida)
+            if (window.orquestador) window.orquestador.procesarDerrota();
         }
     }
 
     actualizarCamara(force = false) {
-        if (!this.player.sprite) return;
+        if (!this.app || !this.app.screen || !this.player.sprite) return;
 
         const halfWidth = this.app.screen.width / 2;
-        const halfHeight = this.app.screen.height / 2;
+        const halfHeight = this.app.screen.height / 2; // 🔥 ¡Le sacamos las barras!
+
         const objetivoX = halfWidth - this.player.x;
         const objetivoY = halfHeight - this.player.y;
 
@@ -580,24 +644,3 @@ class Nivel_1 {
         this.app.destroy(true, { children: true, texture: true, baseTexture: true });
     }
 }
-
-// 2. 🔥 Movemos la CÁMARA (El mundo va en reversa)
-//const mitadPantallaX = this.app.screen.width / 2;
-const mitadPantallaY = this.app.screen.height / 2;
-
-gsap.to(this.mundo, {
-    x: mitadPantallaX - (destinoPixelX + this.tileSize / 2),
-    y: mitadPantallaY - (destinoPixelY + this.tileSize / 2),
-    duration: 0.15,
-    ease: "power1.inOut",
-    onComplete: () => {
-        this.player.isMoving = false; // Liberamos para el próximo paso
-
-        // Chequeo de Victoria
-        if (destino === 2) {
-            console.log("¡Llegaste a la meta!");
-            this.destroy();
-            this.onWin();
-        }
-    }
-});

@@ -49,7 +49,7 @@
                 scriptEl.src = src + "?v=" + version;
                 scriptEl.async = false;
 
-                // 🔥 LA IGNICIÓN: ¿Qué hacer cuando ESTE archivo termine de bajar?
+                // 🔥 LA IGNICIÓN
                 scriptEl.onload = () => {
                     scriptsCargados++;
 
@@ -57,12 +57,21 @@
                     if (scriptsCargados === scriptsAInyectar.length) {
                         console.log("Cargador: Todos los scripts listos. ¡Encendiendo el Orquestador!");
 
-                        // GIRAMOS LA LLAVE
-                        window.juego = new AppOrchestrator();
+                        // 1. Instanciamos pasándole el ID de tu contenedor
+                        window.orquestador = new AppOrchestrator("storyContainer");
 
-                        // OJO: Si tu Orquestador necesita un método para arrancar, 
-                        // como window.juego.init() o window.juego.start(), descomentalo acá abajo:
-                        // window.juego.init(); 
+                        // 2. Ocultamos tu pantalla de carga nativa con GSAP
+                        const loadingScreen = document.getElementById('loadingScreen');
+                        if (loadingScreen) {
+                            gsap.to(loadingScreen, {
+                                opacity: 0,
+                                duration: 0.5,
+                                onComplete: () => loadingScreen.style.display = 'none'
+                            });
+                        }
+
+                        // 3. GIRAMOS LA LLAVE: Forzamos el arranque en el Nivel 1 (Lobby)
+                        window.orquestador.transitionTo(1);
                     }
                 };
 

@@ -1,132 +1,155 @@
 class AppOrchestrator {
-    constructor() {
-        this.container = document.getElementById('storyContainer');
-        this.loadingScreen = document.getElementById('loadingScreen');
-        this.successScreen = document.getElementById('successScreen');
+    constructor(contenedorId) {
+        this.contenedor = document.getElementById(contenedorId);
+        this.currentEngine = null;
+        this.gameState = "MENU";
 
+        // 🔥 ARREGLO: Anotador temporal del nivel actual (por defecto 1)
         this.currentLevelId = 1;
-        this.activeEngine = null;
 
-        this.boot();
+        // Crea la cortina visual negra para los saltos
+        this.crearCortinaTransicion();
     }
 
-    boot() {
-        this.showLoadingScreen();
-        console.log("Iniciando juego"); // Aviso en consola
+    crearCortinaTransicion() {
+        this.cortina = document.createElement('div');
+        this.cortina.style = `
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #14121f; z-index: 9999; pointer-events: none; opacity: 1;
+        `;
+        document.body.appendChild(this.cortina);
+    }
 
-        window.addEventListener('load', () => {
-            // Carga inicial: Dura exactamente 3 segundos (3000 ms)
-            setTimeout(() => {
-                this.renderCurrentLevel(); // Armamos el Lobby por detrás del telón
+    transitionTo(levelId) {
+        if (this.gameState === "LOADING") return;
+        this.gameState = "LOADING";
 
-                this.loadingScreen.classList.add('fade-out');
-                this.container.style.display = 'block';
+        // Bajamos la cortina (Fade a negro)
+        gsap.to(this.cortina, {
+            opacity: 1, duration: 0.4, onComplete: () => {
 
-                // Limpiamos la pantalla de carga del DOM para que no bloquee los botones
-                setTimeout(() => {
-                    this.loadingScreen.style.display = 'none';
-                    this.loadingScreen.classList.remove('fade-out');
-                }, 500);
+                // Limpieza del motor viejo
+                if (this.currentEngine && typeof this.currentEngine.destroy === 'function') {
+                    this.currentEngine.destroy();
+                }
+                this.currentEngine = null;
 
-            }, 3000);
+                // Construimos el nuevo nivel
+                this.renderLevel(levelId);
+            }
         });
     }
 
-    showLoadingScreen(personaje = 'kitty') {
-        const imagenCargaDiv = document.getElementById('imagenCarga');
+    renderLevel(levelId) {
+        const datosNivel = GAME_LEVELS[levelId];
 
-        // Limpiamos las clases anteriores por las dudas
-        imagenCargaDiv.classList.remove('CargaKitty-page', 'CargaDearDaniels-page');
-
-        // Decidimos cuál inyectar
-        if (personaje === 'daniel') {
-            imagenCargaDiv.classList.add('CargaDearDaniels-page');
-        } else {
-            imagenCargaDiv.classList.add('CargaKitty-page');
+        if (!datosNivel) {
+            console.error(`El nivel ${levelId} no existe en GAME_LEVELS`);
+            return;
         }
 
-        // Mostramos la pantalla
-        this.loadingScreen.style.display = 'flex';
-        this.container.style.display = 'none';
-        this.successScreen.style.display = 'none';
-    }
+        // 🔥 ARREGLO: Anotamos qué nivel estamos jugando ahora mismo
+        this.currentLevelId = levelId;
 
-    renderCurrentLevel() {
-        if (this.activeEngine && typeof this.activeEngine.destroy === 'function') {
-            this.activeEngine.destroy();
-            this.activeEngine = null;
-        }
+        // Preparamos las funciones (callbacks) para el GameFactory
+        const alTerminarNivel = () => this.procesarVictoria();
+        const alSeleccionarNivel = (idDestino) => this.transitionTo(idDestino);
 
-        const levelData = GAME_LEVELS[this.currentLevelId];
-        if (!levelData) return;
-
-        const gameObject = GameFactory.build(
-            levelData.type,
-            levelData,
-            () => this.goToLobby(),
-            (id, personaje) => this.jumpToLevel(id, personaje)
+        // Le pedimos a la Fábrica que construya
+        const productoMecanico = GameFactory.build(
+            datosNivel.type,
+            datosNivel,
+            alTerminarNivel,
+            alSeleccionarNivel
         );
 
-        if (!gameObject) return;
+        if (!productoMecanico) return;
 
-        this.container.innerHTML = gameObject.template;
-        this.activeEngine = gameObject.init();
+        // Inyectamos el HTML
+        this.contenedor.innerHTML = productoMecanico.template;
+
+        // Ejecutamos el motor (PixiJS o lógica del Lobby)
+        this.gameState = datosNivel.type === "lobby" ? "MENU" : "PLAYING";
+        this.currentEngine = productoMecanico.init();
+
+        // Subimos la cortina revelando todo
+        gsap.to(this.cortina, { opacity: 0, duration: 0.4 });
     }
 
-    jumpToLevel(id, personaje = 'kitty') {
-        console.log(`Cargando nivel ${id} con pantalla de ${personaje}`);
-        this.showLoadingScreen(personaje);
-
-        setTimeout(() => {
-            this.currentLevelId = id;
-            this.renderCurrentLevel();
-
-            // 🔥 LA LÍNEA MÁGICA: Prendemos la luz del juego de nuevo
-            this.container.style.display = 'block';
-
-            this.loadingScreen.classList.add('fade-out');
-            setTimeout(() => {
-                this.loadingScreen.style.display = 'none';
-                this.loadingScreen.classList.remove('fade-out');
-            }, 500);
-
-        }, 2000);
-    }
-    // =========================================================
-    // 🎬 SISTEMA DE TRANSICIONES ENTRE NIVELES (El Telón)
-    // =========================================================
-
-    goToLobby() {
-        console.log("Regresando al Lobby...");
-        this.showLoadingScreen('kitty');
-
-        setTimeout(() => {
-            this.currentLevelId = 1;
-            this.renderCurrentLevel();
-
-            this.container.style.display = 'block';
-
-            this.loadingScreen.classList.add('fade-out');
-            setTimeout(() => {
-                this.loadingScreen.style.display = 'none';
-                this.loadingScreen.classList.remove('fade-out');
-            }, 500);
-
-        }, 1200);
+    procesarVictoria() {
+        if (this.gameState === "VICTORY") return;
+        this.gameState = "VICTORY";
+        this.mostrarPantallaFinal(true);
     }
 
-    nextLevel() {
-        this.currentLevelId++;
-        this.renderCurrentLevel();
+    procesarDerrota() {
+        if (this.gameState === "GAMEOVER") return;
+        this.gameState = "GAMEOVER";
+        this.mostrarPantallaFinal(false);
     }
 
-    triggerSuccessState() {
-        this.container.style.display = 'none';
-        this.successScreen.style.display = 'flex';
+    // 🔥 EL SISTEMA DE PANTALLA FINAL CUTE
+    mostrarPantallaFinal(esVictoria) {
+        // Borramos el modal anterior si existiera
+        const modalViejo = document.getElementById('modalResultadoFinal');
+        if (modalViejo) modalViejo.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'modalResultadoFinal';
+
+        // Estilo del fondo difuminado
+        modal.style = `
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(20, 18, 31, 0.75); backdrop-filter: blur(8px); 
+            z-index: 1000; display: flex; flex-direction: column; 
+            align-items: center; justify-content: center; opacity: 0;
+        `;
+
+        // Textos y colores dinámicos (Verde vs Rosa)
+        const titulo = esVictoria ? "✨ ¡VICTORIA! ✨" : "💔 ¡OUCH! 💔";
+        const subtitulo = esVictoria ? "¡Nivel Superado!" : "Jugador Eliminado";
+        const mensaje = esVictoria ? "¡Kitty completó el laberinto con éxito!" : "Nuestra pobre Kitty se quedó sin energías...";
+        const colorPrincipal = esVictoria ? "#2ecc71" : "#ff6584";
+        const colorSombra = esVictoria ? "#27ae60" : "#d11a5b";
+        const colorTexto = esVictoria ? "#a8e6cf" : "#ffb7c5";
+
+        // 🔥 ARREGLO: Usamos nuestra nueva variable segura
+        const nivelActual = this.currentLevelId;
+
+        modal.innerHTML = `
+            <div id="cajaResultadoFinal" style="background: #211933; border: 4px solid ${colorPrincipal}; border-radius: 28px; padding: 40px; text-align: center; box-shadow: 0 15px 35px rgba(0,0,0,0.6); max-width: 400px; transform: scale(0.8);">
+                
+                <h1 style="color: ${colorTexto}; font-size: 2.8rem; margin: 0 0 10px 0; text-shadow: 3px 3px 0px ${colorSombra}; font-family: 'Comic Sans MS', sans-serif;">
+                    ${titulo}
+                </h1>
+                
+                <h2 style="color: white; font-size: 1.6rem; margin: 0 0 15px 0;">${subtitulo}</h2>
+                <p style="color: #ddd; margin-bottom: 35px; font-size: 1.1rem; line-height: 1.5;">${mensaje}</p>
+
+                <div style="display: flex; flex-direction: column; gap: 15px;">
+                    <button onclick="window.orquestador.transitionTo(${nivelActual})" style="background: ${colorPrincipal}; color: white; border: none; padding: 16px 20px; border-radius: 16px; font-size: 1.2rem; font-weight: bold; cursor: pointer; box-shadow: 0 5px 0 ${colorSombra}; transition: transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 10px;">
+                        🔄 ${esVictoria ? "Jugar de Nuevo" : "Intentarlo de Nuevo"}
+                    </button>
+                    
+                    <button onclick="window.orquestador.transitionTo(1)" style="background: rgba(0,0,0,0.3); color: ${colorTexto}; border: 2px solid ${colorPrincipal}; padding: 16px 20px; border-radius: 16px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: all 0.2s;">
+                        🏠 Volver al Lobby
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Lo inyectamos en el DOM (en el contenedor principal)
+        this.contenedor.appendChild(modal);
+
+        // Animación suave de entrada con GSAP
+        gsap.to(modal, { opacity: 1, duration: 0.3 });
+        gsap.to('#cajaResultadoFinal', { scale: 1, duration: 0.5, ease: "back.out(1.5)" });
+
+        // Efecto hover
+        const btnPrincipal = modal.querySelector('button');
+        if (btnPrincipal) {
+            btnPrincipal.addEventListener('mousedown', () => btnPrincipal.style.transform = 'translateY(4px)');
+            btnPrincipal.addEventListener('mouseup', () => btnPrincipal.style.transform = 'translateY(0)');
+        }
     }
 }
-
-// Inicialización global única
-document.addEventListener("DOMContentLoaded", () => {
-    window.app = new AppOrchestrator();
-});

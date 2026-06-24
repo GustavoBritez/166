@@ -1,34 +1,60 @@
-// 1. LA FÁBRICA DE CAOS (Matriz 100x100)
-const generarMatrizGigante = () => {
+// 1. LA FÁBRICA PROCEDURAL (Matriz + Enemigos)
+const generarNivelEstres = () => {
     const tamaño = 100;
     let matrizGiga = [];
+    let listaEnemigos = [];
+
+    // Catálogo para elegir enemigos al azar
+    const tipos = ["Baku", "Badtz", "Berry"];
+    const colores = { Baku: "#8a2be2", Badtz: "#f1c40f", Berry: "#2ecc71" };
 
     for (let y = 0; y < tamaño; y++) {
         let fila = [];
         for (let x = 0; x < tamaño; x++) {
-            // Ponemos paredes fijas en los bordes del mapa
+
+            // Bordes fijos
             if (y === 0 || y === tamaño - 1 || x === 0 || x === tamaño - 1) {
                 fila.push(1);
             }
-            // Ponemos un 15% de paredes aleatorias adentro para hacer un laberinto roto
+            // 15% de paredes aleatorias
             else if (Math.random() < 0.15) {
                 fila.push(1);
             }
-            // El resto es suelo libre
+            // Suelo libre
             else {
                 fila.push(0);
+
+                // 🔥 LA MAGIA DE LOS ENEMIGOS
+                // Hay un 2% de probabilidad de que spawnee un enemigo en este bloque de suelo libre.
+                // Además, le decimos (x > 5 || y > 5) para que no spawneen en la puerta de la casa del jugador.
+                if (Math.random() < 0.02 && (x > 5 || y > 5)) {
+
+                    const tipoElegido = tipos[Math.floor(Math.random() * tipos.length)];
+
+                    listaEnemigos.push({
+                        tipo: tipoElegido,
+                        gridX: x,
+                        gridY: y,
+                        color: colores[tipoElegido]
+                    });
+                }
             }
         }
         matrizGiga.push(fila);
     }
 
-    // Forzamos al jugador en la esquina superior izquierda
-    matrizGiga[1][1] = 3;
-    // Forzamos la meta en la esquina inferior derecha
-    matrizGiga[98][98] = 2;
+    matrizGiga[1][1] = 3; // Jugador
+    matrizGiga[98][98] = 2; // Meta
 
-    return matrizGiga;
+    // Ahora la función devuelve las dos cosas empaquetadas
+    return {
+        matriz: matrizGiga,
+        enemigos: listaEnemigos
+    };
 };
+
+// Generamos el paquete del nivel ANTES de armar el diccionario
+const datosEstres = generarNivelEstres();
 
 // 2. TUS NIVELES
 const GAME_LEVELS = {
@@ -40,11 +66,9 @@ const GAME_LEVELS = {
     2: {
         type: "grum",
         title: "¡Prueba de Estrés 100x100!",
-        // Ejecutamos la función para inyectar los 10.000 bloques
-        matriz: generarMatrizGigante(),
-        enemigos: [
-            { tipo: "Baku", gridX: 50, gridY: 50, color: "#8a2be2" }
-        ]
+        // Consumimos los datos que generó nuestra máquina procedural
+        matriz: datosEstres.matriz,
+        enemigos: datosEstres.enemigos
     },
     3: {
         type: "nivel 2",
@@ -64,7 +88,6 @@ const GAME_LEVELS = {
         buttonText: " Sin Escribir "
     }
 };
-
 // 3. CONFIGURACIÓN GLOBAL DE FÍSICAS
 window.GAME_TUNING = window.GAME_TUNING || {
     tileSize: 48,
