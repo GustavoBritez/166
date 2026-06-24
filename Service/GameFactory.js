@@ -22,7 +22,10 @@ class GameFactory {
                                 </div>
 
                                 <div style="display: flex; align-items: flex-end;">
-                                    <button id="btnC" style="width: 80px; height: 80px; background: rgba(52,152,219,0.4); border: 2px solid #3498db; border-radius: 50%; color: white; font-weight: bold; font-size: 16px; touch-action: none;">SPRINT</button>
+                                    <div style="display: flex; gap: 10px; align-items: center;">
+                                        <button id="btnSpace" style="width: 74px; height: 74px; background: rgba(255,255,255,0.16); border: 2px solid rgba(255,255,255,0.55); border-radius: 50%; color: white; font-weight: bold; font-size: 14px; touch-action: none;">FIRE</button>
+                                        <button id="btnShift" style="width: 80px; height: 80px; background: rgba(52,152,219,0.4); border: 2px solid #3498db; border-radius: 50%; color: white; font-weight: bold; font-size: 16px; touch-action: none;">SPRINT</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>`,
@@ -303,18 +306,17 @@ class GameFactory {
                                     <button id="btnD" style="height: 60px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 10px; color: white; font-weight: bold; font-size: 20px; touch-action: none;">D</button>
                                 </div>
 
-                                <div style="display: flex; align-items: flex-end;">
-                                    <button id="btnC" style="width: 80px; height: 80px; background: rgba(52,152,219,0.4); border: 2px solid #3498db; border-radius: 50%; color: white; font-weight: bold; font-size: 16px; touch-action: none;">SPRINT</button>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 10px;">
+                                    <button id="btnShift" style="width: 80px; height: 50px; background: rgba(241,196,15,0.4); border: 2px solid #f1c40f; border-radius: 12px; color: white; font-weight: bold; font-size: 14px; touch-action: none;">TURBO</button>
+                                    <button id="btnSpace" style="width: 80px; height: 80px; background: rgba(52,152,219,0.4); border: 2px solid #3498db; border-radius: 50%; color: white; font-weight: bold; font-size: 14px; touch-action: none;">DISPARO</button>
                                 </div>
                             </div>
                         </div>`,
                     init: () => {
                         const canvasEl = document.getElementById('clubCanvas');
 
-                        // Instanciamos el motor. IMPORTANTE: No llamamos a engine.start() porque ya se llama solo.
                         const engine = new Nivel_1(canvasEl, datosNivel, alTerminarNivel);
 
-                        // Conexión de botones táctiles
                         const conectarBotonMovil = (btnId, tecla) => {
                             const btn = document.getElementById(btnId);
                             if (btn) {
@@ -330,7 +332,19 @@ class GameFactory {
                         conectarBotonMovil('btnS', 's');
                         conectarBotonMovil('btnA', 'a');
                         conectarBotonMovil('btnD', 'd');
-                        conectarBotonMovil('btnC', 'c');
+
+                        const btnSpace = document.getElementById('btnSpace');
+                        const btnShift = document.getElementById('btnShift');
+
+                        if (btnSpace) {
+                            btnSpace.addEventListener('touchstart', (e) => { e.preventDefault(); engine.disparar(); });
+                            btnSpace.addEventListener('mousedown', () => engine.disparar());
+                        }
+
+                        if (btnShift) {
+                            btnShift.addEventListener('touchstart', (e) => { e.preventDefault(); engine.activarTurbo(); });
+                            btnShift.addEventListener('mousedown', () => engine.activarTurbo());
+                        }
 
                         return engine;
                     }

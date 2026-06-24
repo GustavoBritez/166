@@ -1,188 +1,563 @@
 class Nivel_1 {
     constructor(canvas, config, onWin) {
-        // 1. MODO DETECTIVE: Imprimimos en consola EXACTAMENTE qué llegó
-        console.log("👀 MODO DETECTIVE - Datos recibidos por el motor:", config);
-
-        // 2. LA BARRERA ESTRICTA (Si no hay matriz, el programa explota a propósito)
         if (!config || !config.matriz || !Array.isArray(config.matriz)) {
-            console.error("🚨 ¡ALTO AHÍ! El Orquestador no envió la matriz.");
-            throw new Error("Arquitectura estricta: Nivel abortado por falta de matriz. Revisá console.log de arriba.");
+            throw new Error("Arquitectura estricta: Nivel abortado por falta de matriz.");
         }
 
-        // 3. ASIGNACIONES NORMALES (Solo llega acá si la matriz es válida)
         this.canvas = canvas;
         this.config = config;
         this.onWin = onWin;
-        this.mapaMatriz = config.matriz; // <-- Esta es la única asignación que necesitás
+        this.mapaMatriz = config.matriz.map((fila) => fila.slice());
+        this.settings = this.obtenerConfiguracionGlobal();
 
-        // 1. INICIALIZAR PIXI.JS
         this.app = new PIXI.Application({
             view: canvas,
             width: 800,
             height: 600,
-            backgroundColor: 0xffb7c5,
+            backgroundColor: 0x14121f,
+            antialias: true,
+            autoDensity: true,
             resolution: window.devicePixelRatio || 1,
         });
 
-        this.tileSize = 50;
+        this.tileSize = this.settings.tileSize;
+        this.worldWidth = this.mapaMatriz[0].length * this.tileSize;
+        this.worldHeight = this.mapaMatriz.length * this.tileSize;
 
-        // Capas para mantener el orden visual
+        this.mundo = new PIXI.Container();
         this.capaFondo = new PIXI.Container();
         this.capaEntidades = new PIXI.Container();
-        this.app.stage.addChild(this.capaFondo);
-        this.app.stage.addChild(this.capaEntidades);
+        this.capaUI = new PIXI.Container();
+        this.mundo.addChild(this.capaFondo, this.capaEntidades);
+        this.app.stage.addChild(this.mundo, this.capaUI);
 
-        // Variables de estado del jugador
         this.player = {
             gridX: 0,
             gridY: 0,
             sprite: null,
-            isMoving: false
+            x: 0,
+            y: 0,
+            vx: 0,
+            vy: 0,
+            lives: this.settings.playerLives,
+            speed: this.settings.playerSpeed,
+            turboMultiplier: this.settings.turboMultiplier,
+            turboUntil: 0,
+            fireCooldownUntil: 0,
+            direction: { x: 0, y: 1 }
         };
 
-        // Controles
+        this.enemies = [];
+        this.projectiles = [];
         this.keys = {};
-        this.handleKeyDown = (e) => this.keys[e.key] = true;
-        this.handleKeyUp = (e) => this.keys[e.key] = false;
+        this.lastMoveDirection = { x: 0, y: 0 };
+        this.gameOver = false;
+        this.victoryTriggered = false;
 
-        // Arrancamos
+        this.handleKeyDown = (e) => this.onKeyDown(e);
+        this.handleKeyUp = (e) => this.onKeyUp(e);
+        this.handleResize = () => this.redimensionarEscena();
+
         this.start();
+    }
+
+    obtenerConfiguracionGlobal() {
+        const globalSettings = window.GAME_TUNING || {};
+        return {
+            tileSize: globalSettings.tileSize ?? 48,
+            playerLives: globalSettings.playerLives ?? 3,
+            playerSpeed: globalSettings.playerSpeed ?? 170,
+            berrySpeedBoost: globalSettings.berrySpeedBoost ?? 0.5,
+            bulletSpeed: globalSettings.bulletSpeed ?? 420,
+            bulletRadius: globalSettings.bulletRadius ?? 6,
+            bulletCooldown: globalSettings.bulletCooldown ?? 220,
+            turboMultiplier: globalSettings.turboMultiplier ?? 1.6,
+            turboDurationMs: globalSettings.turboDurationMs ?? 2000,
+            berryVisionTiles: globalSettings.berryVisionTiles ?? 5,
+            enemyDamageCooldownMs: globalSettings.enemyDamageCooldownMs ?? 900,
+            enemySpeedMultiplier: globalSettings.enemySpeedMultiplier ?? 1
+        };
     }
 
     start() {
         window.addEventListener('keydown', this.handleKeyDown);
         window.addEventListener('keyup', this.handleKeyUp);
+        window.addEventListener('resize', this.handleResize);
 
         this.construirMapa();
-
-        this.app.ticker.add(() => this.update());
-
+        this.crearHud();
+        this.redimensionarEscena();
+        this.app.ticker.add((delta) => this.update(delta));
         this.conectarControlesAudio();
     }
 
+    onKeyDown(e) {
+        this.keys[e.key] = true;
+
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Spacebar', 'Shift', 'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'].includes(e.key) || e.code === 'Space' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+            e.preventDefault();
+        }
+
+        if (e.key === 'Shift') {
+            this.activarTurbo();
+        }
+
+        if (e.key === ' ' || e.code === 'Space') {
+            this.disparar();
+        }
+    }
+
+    onKeyUp(e) {
+        this.keys[e.key] = false;
+    }
+
     construirMapa() {
+        const fondoBase = new PIXI.Graphics();
+        fondoBase.beginFill(0x181426, 1);
+        fondoBase.drawRect(0, 0, this.worldWidth, this.worldHeight);
+        fondoBase.endFill();
+        this.capaFondo.addChild(fondoBase);
+
         for (let y = 0; y < this.mapaMatriz.length; y++) {
             for (let x = 0; x < this.mapaMatriz[y].length; x++) {
+                const tipoCelda = this.mapaMatriz[y][x];
+                const posX = x * this.tileSize;
+                const posY = y * this.tileSize;
 
-                let tipoCelda = this.mapaMatriz[y][x];
-                let posX = x * this.tileSize;
-                let posY = y * this.tileSize;
+                const tile = new PIXI.Graphics();
+                tile.beginFill((x + y) % 2 === 0 ? 0x241d3a : 0x211933, 1);
+                tile.drawRoundedRect(0, 0, this.tileSize - 1, this.tileSize - 1, 8);
+                tile.endFill();
+                tile.x = posX;
+                tile.y = posY;
+                this.capaFondo.addChild(tile);
 
-
-                let suelo = new PIXI.Graphics();
-                suelo.beginFill(0xffe4e1); // Color suelo pastel
-                suelo.drawRect(0, 0, this.tileSize, this.tileSize);
-                suelo.endFill();
-                suelo.x = posX;
-                suelo.y = posY;
-                this.capaFondo.addChild(suelo);
-
-                // Si es PARED (1)
                 if (tipoCelda === 1) {
-                    let pared = new PIXI.Graphics();
-                    pared.beginFill(0xff8b94); // Color pared
-                    pared.drawRoundedRect(0, 0, this.tileSize, this.tileSize, 8); // Bordes redondeados
+                    const pared = new PIXI.Graphics();
+                    pared.beginFill(0x8c6df0, 1);
+                    pared.drawRoundedRect(0, 0, this.tileSize - 1, this.tileSize - 1, 10);
                     pared.endFill();
+                    pared.alpha = 0.9;
                     pared.x = posX;
                     pared.y = posY;
                     this.capaFondo.addChild(pared);
-                }
-                // Si es META (2)
-                else if (tipoCelda === 2) {
-                    let meta = new PIXI.Graphics();
-                    meta.beginFill(0xffd3b6); // Color meta
-                    meta.drawRect(0, 0, this.tileSize, this.tileSize);
+                } else if (tipoCelda === 2) {
+                    const meta = new PIXI.Graphics();
+                    meta.beginFill(0xffd166, 1);
+                    meta.drawRoundedRect(4, 4, this.tileSize - 9, this.tileSize - 9, 10);
                     meta.endFill();
                     meta.x = posX;
                     meta.y = posY;
                     this.capaFondo.addChild(meta);
-                }
-                // Si es el JUGADOR (3)
-                else if (tipoCelda === 3) {
-                    // Guardamos sus coordenadas en la libreta lógica de la matriz
+                } else if (tipoCelda === 3) {
                     this.player.gridX = x;
                     this.player.gridY = y;
-
-                    // Creamos su gráfico
-                    this.player.sprite = new PIXI.Graphics();
-                    this.player.sprite.beginFill(0x3498db); // Color Azul
-                    this.player.sprite.drawCircle(this.tileSize / 2, this.tileSize / 2, this.tileSize / 2.5);
-                    this.player.sprite.endFill();
-
-                    // Lo posicionamos físicamente en la pantalla
-                    this.player.sprite.x = posX;
-                    this.player.sprite.y = posY;
-
+                    this.player.x = posX + this.tileSize / 2;
+                    this.player.y = posY + this.tileSize / 2;
+                    this.player.sprite = this.crearCirculo(0x3da9fc, this.tileSize * 0.22, 0.95);
+                    this.player.sprite.x = this.player.x;
+                    this.player.sprite.y = this.player.y;
+                    this.player.baseScale = this.player.sprite.scale.x;
                     this.capaEntidades.addChild(this.player.sprite);
-
-                    // Limpiamos la matriz para que ese casillero vuelva a ser un "0" (suelo pisable)
                     this.mapaMatriz[y][x] = 0;
                 }
             }
         }
+
+        this.crearEnemigos();
+        this.actualizarCamara(true);
     }
 
-    update() {
-        // Si GSAP todavía está animando el movimiento hacia el bloque actual, frenamos el código
-        if (this.player.isMoving) return;
+    crearCirculo(color, radio, alpha = 1) {
+        const g = new PIXI.Graphics();
+        g.beginFill(color, alpha);
+        g.drawCircle(0, 0, radio);
+        g.endFill();
+        return g;
+    }
 
-        let nextGridX = this.player.gridX;
-        let nextGridY = this.player.gridY;
+    crearHud() {
+        this.hudTexto = new PIXI.Text('', {
+            fontFamily: 'Arial',
+            fontSize: 18,
+            fill: 0xffffff,
+            fontWeight: '700',
+            dropShadow: true,
+            dropShadowColor: 0x000000,
+            dropShadowDistance: 2,
+        });
+        this.hudTexto.position.set(16, 14);
+        this.hudTexto.zIndex = 1000;
+        this.capaUI.addChild(this.hudTexto);
+        this.actualizarHud();
+    }
 
-        if (this.keys['ArrowUp'] || this.keys['w'] || this.keys['W']) nextGridY--;
-        else if (this.keys['ArrowDown'] || this.keys['s'] || this.keys['S']) nextGridY++;
-        else if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) nextGridX--;
-        else if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) nextGridX++;
+    actualizarHud() {
+        const vidas = Math.max(0, this.player.lives);
+        this.hudTexto.text = `Vidas: ${vidas} | SPACE: disparo | SHIFT: turbo`;
+    }
 
-        // Si el usuario intentó moverse
-        if (nextGridX !== this.player.gridX || nextGridY !== this.player.gridY) {
+    crearEnemigos() {
+        const definitions = Array.isArray(this.config.enemigos) ? this.config.enemigos : [];
+        const palette = {
+            Baku: 0x8a2be2,
+            Badtz: 0xf1c40f,
+            Berry: 0x2ecc71
+        };
 
-            // ¿Qué hay en esa celda futura? (Manejando límites de la matriz para evitar errores de índice)
-            if (nextGridY >= 0 && nextGridY < this.mapaMatriz.length &&
-                nextGridX >= 0 && nextGridX < this.mapaMatriz[0].length) {
+        definitions.forEach((data) => {
+            const enemy = {
+                tipo: data.tipo,
+                gridX: data.gridX,
+                gridY: data.gridY,
+                x: data.gridX * this.tileSize + this.tileSize / 2,
+                y: data.gridY * this.tileSize + this.tileSize / 2,
+                startX: data.gridX * this.tileSize + this.tileSize / 2,
+                startY: data.gridY * this.tileSize + this.tileSize / 2,
+                speed: this.settings.playerSpeed,
+                sprite: this.crearCirculo(this.parseColor(data.color, palette[data.tipo] ?? 0xffffff), this.tileSize * 0.22),
+                lastHitAt: 0,
+                patrolDirection: 1,
+                visionRadius: this.settings.berryVisionTiles * this.tileSize,
+                baseScale: 1
+            };
 
-                let destino = this.mapaMatriz[nextGridY][nextGridX];
+            enemy.sprite.x = enemy.x;
+            enemy.sprite.y = enemy.y;
+            this.capaEntidades.addChild(enemy.sprite);
+            this.enemies.push(enemy);
+        });
+    }
 
-                // Si NO es una pared (1)
-                if (destino !== 1) {
-                    this.player.isMoving = true; // Bloqueamos nuevas órdenes de teclado
-                    this.player.gridX = nextGridX; // Actualizamos la matriz interna
-                    this.player.gridY = nextGridY;
+    parseColor(colorValue, fallback) {
+        if (typeof colorValue === 'string' && colorValue.startsWith('#')) {
+            return Number.parseInt(colorValue.slice(1), 16);
+        }
 
-                    // GSAP hace la magia visual de deslizar al personaje al siguiente bloque
-                    gsap.to(this.player.sprite, {
-                        x: nextGridX * this.tileSize,
-                        y: nextGridY * this.tileSize,
-                        duration: 0.15, // Velocidad de paso
-                        ease: "power1.inOut",
-                        onComplete: () => {
-                            this.player.isMoving = false; // Liberamos para el próximo paso
+        if (typeof colorValue === 'number') {
+            return colorValue;
+        }
 
-                            // Chequeo de Victoria
-                            if (destino === 2) {
-                                console.log("¡Llegaste a la mesa VIP!");
-                                this.destroy();
-                                this.onWin();
-                            }
-                        }
-                    });
-                }
-            }
+        return fallback;
+    }
+
+    redimensionarEscena() {
+        if (!this.app || !this.player.sprite) return;
+        this.actualizarCamara(true);
+    }
+
+    update(delta) {
+        if (this.gameOver) return;
+
+        const dt = delta / this.app.ticker.FPS;
+        const velocity = this.calcularVelocidadActual();
+
+        this.moverJugador(dt, velocity);
+        this.actualizarEnemigos(dt);
+        this.actualizarProyectiles(dt);
+        this.verificarColisionesJugadorEnemigo();
+        this.verificarVictoria();
+        this.actualizarCamara();
+
+        // 🔥 MAGIA DE RENDIMIENTO: Apagamos lo que no se ve
+        this.aplicarFrustumCulling();
+
+        this.actualizarHud();
+    }
+
+    aplicarFrustumCulling() {
+        // 1. Calculamos dónde está mirando la cámara actualmente
+        // Como el "mundo" se mueve en reversa (hacia los negativos), invertimos el signo.
+        const vistaIzquierda = -this.mundo.x;
+        const vistaDerecha = -this.mundo.x + this.app.screen.width;
+        const vistaArriba = -this.mundo.y;
+        const vistaAbajo = -this.mundo.y + this.app.screen.height;
+
+        // 2. Margen de seguridad (2 bloques extra alrededor de la pantalla)
+        // Evita el efecto de "pop-in" (que el jugador vea cuando el bloque se enciende)
+        const margen = this.tileSize * 2;
+
+        // 3. Recorremos TODOS los gráficos del mapa (Suelos, paredes, metas)
+        const elementosFondo = this.capaFondo.children;
+
+        for (let i = 0; i < elementosFondo.length; i++) {
+            const tile = elementosFondo[i];
+
+            // ¿Este bloque está adentro del rectángulo de visión + margen?
+            const estaVisible = (
+                tile.x >= vistaIzquierda - margen &&
+                tile.x <= vistaDerecha + margen &&
+                tile.y >= vistaArriba - margen &&
+                tile.y <= vistaAbajo + margen
+            );
+
+            // Si está lejos, PixiJS ignora este bloque y no lo renderiza en la GPU
+            tile.visible = estaVisible;
         }
     }
 
-    destroy() {
-        // Limpieza profunda de memoria
-        window.removeEventListener('keydown', this.handleKeyDown);
-        window.removeEventListener('keyup', this.handleKeyUp);
-        this.app.destroy(true, { children: true, texture: true, baseTexture: true });
+    calcularVelocidadActual() {
+        return this.player.turboUntil > performance.now()
+            ? this.player.speed * this.player.turboMultiplier
+            : this.player.speed;
+    }
+
+    moverJugador(dt, velocity) {
+        const direccion = this.leerDireccion();
+        if (direccion.x === 0 && direccion.y === 0) {
+            this.player.sprite.scale.set(this.player.baseScale || 1);
+            return;
+        }
+
+        this.player.direction = direccion;
+
+        const nextX = this.player.x + direccion.x * velocity * dt;
+        const nextY = this.player.y + direccion.y * velocity * dt;
+
+        if (this.esPosicionCaminoLibre(nextX, nextY, this.tileSize * 0.22)) {
+            this.player.x = nextX;
+            this.player.y = nextY;
+            this.player.sprite.x = this.player.x;
+            this.player.sprite.y = this.player.y;
+        }
+
+        const pulso = 1 + (this.player.turboUntil > performance.now() ? 0.08 : 0);
+        this.player.sprite.scale.set(pulso);
+    }
+
+    leerDireccion() {
+        const up = this.keys.ArrowUp || this.keys.w || this.keys.W;
+        const down = this.keys.ArrowDown || this.keys.s || this.keys.S;
+        const left = this.keys.ArrowLeft || this.keys.a || this.keys.A;
+        const right = this.keys.ArrowRight || this.keys.d || this.keys.D;
+
+        if (up) return { x: 0, y: -1 };
+        if (down) return { x: 0, y: 1 };
+        if (left) return { x: -1, y: 0 };
+        if (right) return { x: 1, y: 0 };
+        return { x: 0, y: 0 };
+    }
+
+    esPosicionCaminoLibre(x, y, radio) {
+        const puntos = [
+            { x: x - radio, y: y - radio },
+            { x: x + radio, y: y - radio },
+            { x: x - radio, y: y + radio },
+            { x: x + radio, y: y + radio }
+        ];
+
+        return puntos.every((punto) => !this.esParedEnPixel(punto.x, punto.y));
+    }
+
+    esParedEnPixel(x, y) {
+        if (x < 0 || y < 0 || x >= this.worldWidth || y >= this.worldHeight) return true;
+
+        const gridX = Math.floor(x / this.tileSize);
+        const gridY = Math.floor(y / this.tileSize);
+        return this.mapaMatriz[gridY]?.[gridX] === 1;
+    }
+
+    actualizarEnemigos(dt) {
+        this.enemies.forEach((enemy) => {
+            const speed = this.settings.playerSpeed * (enemy.tipo === 'Berry' ? (1 + this.settings.berrySpeedBoost) : 1);
+            const radioEnemigo = this.tileSize * 0.22;
+
+            if (enemy.tipo === 'Baku') {
+                const nextX = enemy.x + enemy.patrolDirection * speed * dt;
+                const limiteIzquierdo = enemy.startX - this.tileSize * 2;
+                const limiteDerecho = enemy.startX + this.tileSize * 2;
+
+                if (nextX < limiteIzquierdo || nextX > limiteDerecho) {
+                    enemy.patrolDirection *= -1;
+                } else if (this.esPosicionCaminoLibre(nextX, enemy.y, radioEnemigo)) {
+                    enemy.x = nextX;
+                }
+            } else if (enemy.tipo === 'Badtz') {
+                const nextY = enemy.y + enemy.patrolDirection * speed * dt;
+                const limiteSuperior = enemy.startY - this.tileSize * 2;
+                const limiteInferior = enemy.startY + this.tileSize * 2;
+
+                if (nextY < limiteSuperior || nextY > limiteInferior) {
+                    enemy.patrolDirection *= -1;
+                } else if (this.esPosicionCaminoLibre(enemy.x, nextY, radioEnemigo)) {
+                    enemy.y = nextY;
+                }
+            } else if (enemy.tipo === 'Berry') {
+                const dx = this.player.x - enemy.x;
+                const dy = this.player.y - enemy.y;
+                const distance = Math.hypot(dx, dy);
+
+                if (distance <= enemy.visionRadius) {
+                    const chaseSpeed = speed * dt;
+                    const stepX = (dx / Math.max(distance, 0.001)) * chaseSpeed;
+                    const stepY = (dy / Math.max(distance, 0.001)) * chaseSpeed;
+                    const nextX = enemy.x + stepX;
+                    const nextY = enemy.y + stepY;
+
+                    if (this.esPosicionCaminoLibre(nextX, nextY, radioEnemigo)) {
+                        enemy.x = nextX;
+                        enemy.y = nextY;
+                    } else {
+                        const moveX = this.esPosicionCaminoLibre(nextX, enemy.y, radioEnemigo);
+                        const moveY = this.esPosicionCaminoLibre(enemy.x, nextY, radioEnemigo);
+
+                        if (moveX) {
+                            enemy.x = nextX;
+                        }
+
+                        if (moveY) {
+                            enemy.y = nextY;
+                        }
+                    }
+                }
+            }
+
+            enemy.sprite.x = enemy.x;
+            enemy.sprite.y = enemy.y;
+        });
+    }
+
+    disparar() {
+        const now = performance.now();
+        if (now < this.player.fireCooldownUntil) return;
+        this.player.fireCooldownUntil = now + this.settings.bulletCooldown;
+
+        const bullet = {
+            x: this.player.x,
+            y: this.player.y,
+            dir: { ...this.player.direction },
+            sprite: this.crearCirculo(0xffffff, this.settings.bulletRadius, 0.95)
+        };
+
+        if (bullet.dir.x === 0 && bullet.dir.y === 0) {
+            bullet.dir = { x: 0, y: -1 };
+        }
+
+        bullet.sprite.x = bullet.x;
+        bullet.sprite.y = bullet.y;
+        this.capaEntidades.addChild(bullet.sprite);
+        this.projectiles.push(bullet);
+    }
+
+    actualizarProyectiles(dt) {
+        this.projectiles = this.projectiles.filter((bullet) => {
+            bullet.x += bullet.dir.x * this.settings.bulletSpeed * dt;
+            bullet.y += bullet.dir.y * this.settings.bulletSpeed * dt;
+            bullet.sprite.x = bullet.x;
+            bullet.sprite.y = bullet.y;
+
+            const fueraDeMapa = bullet.x < 0 || bullet.y < 0 || bullet.x > this.worldWidth || bullet.y > this.worldHeight;
+            if (fueraDeMapa) {
+                bullet.sprite.destroy();
+                return false;
+            }
+
+            const enemyHit = this.enemies.find((enemy) => this.distancia(bullet.x, bullet.y, enemy.x, enemy.y) < this.tileSize * 0.3);
+            if (enemyHit) {
+                enemyHit.sprite.alpha = 0.6;
+                gsap.to(enemyHit.sprite, { duration: 0.12, alpha: 1, repeat: 1, yoyo: true });
+                bullet.sprite.destroy();
+                return false;
+            }
+
+            return true;
+        });
+    }
+
+    verificarColisionesJugadorEnemigo() {
+        const ahora = performance.now();
+
+        this.enemies.forEach((enemy) => {
+            const distancia = this.distancia(this.player.x, this.player.y, enemy.x, enemy.y);
+            if (distancia < this.tileSize * 0.38 && ahora - enemy.lastHitAt >= this.settings.enemyDamageCooldownMs) {
+                enemy.lastHitAt = ahora;
+                this.recibirDanio();
+            }
+        });
+    }
+
+    recibirDanio() {
+        if (this.gameOver) return;
+
+        this.player.lives -= 1;
+        this.player.sprite.tint = 0xff8f8f;
+        gsap.to(this.player.sprite, {
+            duration: 0.18,
+            alpha: 0.55,
+            yoyo: true,
+            repeat: 3,
+            onComplete: () => {
+                this.player.sprite.alpha = 1;
+                this.player.sprite.tint = 0xffffff;
+            }
+        });
+
+        if (this.player.lives <= 0) {
+            this.terminarJuego(false);
+        }
+    }
+
+    activarTurbo() {
+        this.player.turboUntil = performance.now() + this.settings.turboDurationMs;
+    }
+
+    verificarVictoria() {
+        if (this.victoryTriggered) return;
+
+        const tileX = Math.floor(this.player.x / this.tileSize);
+        const tileY = Math.floor(this.player.y / this.tileSize);
+        const celda = this.mapaMatriz[tileY]?.[tileX];
+
+        if (celda === 2) {
+            this.victoryTriggered = true;
+            this.terminarJuego(true);
+        }
+    }
+
+    terminarJuego(victoria) {
+        if (this.gameOver) return;
+        this.gameOver = true;
+        this.destroy();
+
+        if (victoria && typeof this.onWin === 'function') {
+            this.onWin();
+        }
+    }
+
+    actualizarCamara(force = false) {
+        if (!this.player.sprite) return;
+
+        const halfWidth = this.app.screen.width / 2;
+        const halfHeight = this.app.screen.height / 2;
+        const objetivoX = halfWidth - this.player.x;
+        const objetivoY = halfHeight - this.player.y;
+
+        const maxX = 0;
+        const maxY = 0;
+        const minX = Math.min(0, this.app.screen.width - this.worldWidth);
+        const minY = Math.min(0, this.app.screen.height - this.worldHeight);
+
+        const clampedX = Math.max(minX, Math.min(maxX, objetivoX));
+        const clampedY = Math.max(minY, Math.min(maxY, objetivoY));
+
+        if (force) {
+            this.mundo.position.set(clampedX, clampedY);
+            return;
+        }
+
+        this.mundo.x += (clampedX - this.mundo.x) * 0.12;
+        this.mundo.y += (clampedY - this.mundo.y) * 0.12;
+    }
+
+    distancia(x1, y1, x2, y2) {
+        return Math.hypot(x1 - x2, y1 - y2);
     }
 
     conectarControlesAudio() {
         const btnMusic = document.getElementById('btnMusic');
         const volRange = document.getElementById('volRange');
 
-        if (!btnMusic || !volRange) return;
+        if (!btnMusic || !volRange || !window.audioManager) return;
 
         btnMusic.onclick = () => {
             const playing = window.audioManager.togglePlay();
@@ -193,74 +568,21 @@ class Nivel_1 {
             window.audioManager.setVolume(e.target.value);
         };
     }
+
+    destroy() {
+        window.removeEventListener('keydown', this.handleKeyDown);
+        window.removeEventListener('keyup', this.handleKeyUp);
+        window.removeEventListener('resize', this.handleResize);
+
+        this.projectiles.forEach((bullet) => bullet.sprite.destroy());
+        this.enemies.forEach((enemy) => enemy.sprite.destroy());
+
+        this.app.destroy(true, { children: true, texture: true, baseTexture: true });
+    }
 }
-
-¡Qué genialidad que ya esté funcionando! Ver ese bloque azul moverse por el mapa generado por código es un hito tremendo.
-
-Y tenés una visión de diseño perfecta.Ese laberinto gigante que pasaste en la segunda imagen es imposible de meter en una pantalla de 800x600 sin que los pasillos queden del tamaño de una hormiga.
-
-Lo que estás pidiendo se conoce en el desarrollo de videojuegos como el Patrón de Cámara(Camera Pattern).
-
-¿Cómo funciona una "Cámara" en 2D ?
-    Acá hay un truco mental espectacular: la cámara en realidad no se mueve, el que se mueve es el mundo entero en la dirección contraria.Imaginate que la pantalla de tu computadora(el canvas de 800x600) es una ventana de vidrio fijo.El nivel(tu laberinto de 40x40) es una cartulina gigante que está detrás.Para que parezca que Kitty / Daniel camina hacia la derecha, lo que hacemos es deslizar la cartulina gigante hacia la izquierda.
-
-Para lograr esto en PixiJS, solo tenemos que meter todas tus capas adentro de una gran "Caja Maestra"(el Mundo) y decirle a GSAP que mueva esa caja al mismo tiempo que mueve al jugador.
-
-Aquí tenés los 3 cambios exactos que tenés que hacer en tu Nivel_1.js para tener una cámara profesional que siga al personaje.
-
-    PASO 1: Crear la "Caja Maestra" del Mundo
-En el constructor de tu Nivel_1.js, buscá donde creás las capas y reemplazalo por esto.Agregamos this.mundo.
-
-    JavaScript
-this.tileSize = 50;
-
-// 🔥 EL TRUCO DE LA CÁMARA: Creamos un Contenedor Maestro
-this.mundo = new PIXI.Container();
-
-// Capas internas (van ADENTRO del mundo, no sueltas en el stage)
-this.capaFondo = new PIXI.Container();
-this.capaEntidades = new PIXI.Container();
-
-this.mundo.addChild(this.capaFondo);
-this.mundo.addChild(this.capaEntidades);
-
-// Y al lienzo principal de Pixi solo le pasamos el Mundo
-this.app.stage.addChild(this.mundo);
-PASO 2: Enfocar la cámara al arrancar el nivel
-Justo al final de tu función construirMapa(), cuando el bucle ya terminó de armar todas las paredes y de posicionar al jugador, agregá estas líneas para que la cámara arranque centrada en vos y no en la esquina del mapa.
-
-    JavaScript
-construirMapa() {
-    // ... (todo tu bucle for que ya tenés) ...
-
-    // 🔥 NUEVO: Centramos la cámara en el jugador apenas arranca
-    const mitadPantallaX = this.app.screen.width / 2;
-    const mitadPantallaY = this.app.screen.height / 2;
-
-    // Movemos el MUNDO en la dirección opuesta al jugador
-    this.mundo.x = mitadPantallaX - (this.player.sprite.x + this.tileSize / 2);
-    this.mundo.y = mitadPantallaY - (this.player.sprite.y + this.tileSize / 2);
-}
-PASO 3: Mover el mundo junto con el jugador
-En tu función update(), donde tenés la animación de GSAP, vamos a decirle que no solo mueva el sprite del jugador, sino que mueva todo el this.mundo al mismo tiempo.
-
-Reemplazá tu bloque de gsap.to por este:
-
-JavaScript
-// GSAP hace la magia visual
-const destinoPixelX = nextGridX * this.tileSize;
-const destinoPixelY = nextGridY * this.tileSize;
-
-// 1. Movemos al personaje
-gsap.to(this.player.sprite, {
-    x: destinoPixelX,
-    y: destinoPixelY,
-    duration: 0.15,
-    ease: "power1.inOut"
-});
 
 // 2. 🔥 Movemos la CÁMARA (El mundo va en reversa)
-const mitadPantallaX = this.app.screen.width / 2;
+//const mitadPantallaX = this.app.screen.width / 2;
 const mitadPantallaY = this.app.screen.height / 2;
 
 gsap.to(this.mundo, {
@@ -279,9 +601,3 @@ gsap.to(this.mundo, {
         }
     }
 });
-¡El mapa ahora es infinito!
-Con este cambio, podés ir a tu levels.js y hacer una matriz brutal de 30x30 o 50x50 copiando el diseño del laberinto blanco y negro que me pasaste.
-
-El canvas seguirá midiendo 800x600(para no romper la estética de tu web ni saturar la memoria), pero adentro, el jugador va a sentir que está explorando un mapa gigante porque la cámara lo va a seguir suavemente con cada paso que dé.
-
-Avisame cuando implementes esto. ¡La sensación de caminar y que el mapa se revele es increíble!
