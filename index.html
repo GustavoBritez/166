@@ -31,53 +31,40 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
-    <script>
-        (function () {
-            const version = Date.now();
-            const scriptsAInyectar = [
-                "./Niveles/levels.js",
-                "./Niveles/Nivel_1.js",
-                "./Service/GameFactory.js",
-                "./Service/AudioManager.js",
-                "AppOrchestrator.js"
-            ];
 
-            let scriptsCargados = 0; // Nuestro contador de descargas
+    <script type="module">
+        // 1. Generamos la versión para evitar el caché (Cache-busting)
+        const version = Date.now();
 
-            scriptsAInyectar.forEach(src => {
-                let scriptEl = document.createElement('script');
-                scriptEl.src = src + "?v=" + version;
-                scriptEl.async = false;
+        // 2. Importamos DINÁMICAMENTE solo el archivo Orquestador.
+        // El navegador leerá sus 'import' y descargará el resto automáticamente.
+        import(`./AppOrchestrator.js?v=${version}`)
+            .then((modulo) => {
+                console.log("Cargador: Orquestador y dependencias listos. ¡Encendiendo!");
 
-                // 🔥 LA IGNICIÓN
-                scriptEl.onload = () => {
-                    scriptsCargados++;
+                // 3. Instanciamos extrayendo la clase del módulo importado
+                // IMPORTANTE: Asegúrate de que en AppOrchestrator.js tengas: export class AppOrchestrator
+                window.orquestador = new modulo.AppOrchestrator("storyContainer");
 
-                    // Si ya cargaron todos los de la lista...
-                    if (scriptsCargados === scriptsAInyectar.length) {
-                        console.log("Cargador: Todos los scripts listos. ¡Encendiendo el Orquestador!");
+                // 4. Ocultamos tu pantalla de carga nativa con GSAP
+                const loadingScreen = document.getElementById('loadingScreen');
+                if (loadingScreen) {
+                    gsap.to(loadingScreen, {
+                        opacity: 0,
+                        duration: 0.5,
+                        onComplete: () => loadingScreen.style.display = 'none'
+                    });
+                }
 
-                        // 1. Instanciamos pasándole el ID de tu contenedor
-                        window.orquestador = new AppOrchestrator("storyContainer");
-
-                        // 2. Ocultamos tu pantalla de carga nativa con GSAP
-                        const loadingScreen = document.getElementById('loadingScreen');
-                        if (loadingScreen) {
-                            gsap.to(loadingScreen, {
-                                opacity: 0,
-                                duration: 0.5,
-                                onComplete: () => loadingScreen.style.display = 'none'
-                            });
-                        }
-
-                        // 3. GIRAMOS LA LLAVE: Forzamos el arranque en el Nivel 1 (Lobby)
-                        window.orquestador.transitionTo(1);
-                    }
-                };
-
-                document.body.appendChild(scriptEl);
+                // 5. GIRAMOS LA LLAVE: Forzamos el arranque en el Nivel 1 (Lobby)
+                window.orquestador.transitionTo(1);
+            })
+            .catch((err) => {
+                // Si algún import falla (ej: error de sintaxis o archivo no encontrado), lo atrapamos aquí
+                console.error("Error crítico cargando los módulos del juego:", err);
+                const loadingText = document.querySelector('.loader-content p');
+                if (loadingText) loadingText.innerText = "Error cargando el juego :(";
             });
-        })();
     </script>
 </body>
 

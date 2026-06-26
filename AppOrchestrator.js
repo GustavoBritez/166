@@ -1,4 +1,11 @@
-class AppOrchestrator {
+// --- IMPORTACIONES MODULARES ---
+// Como AppOrchestrator.js está en la raíz, bajamos a la carpeta Niveles y Service
+import { GAME_LEVELS } from './Niveles/levels.js';
+import { GameFactory } from './Service/GameFactory.js';
+// Si vas a usar el AudioManager en el orquestador, descomenta la siguiente línea:
+// import { AudioManager } from './Service/AudioManager.js'; 
+
+export class AppOrchestrator {
     constructor(contenedorId) {
         this.contenedor = document.getElementById(contenedorId);
         this.currentEngine = null;

@@ -1,4 +1,6 @@
-class GameFactory {
+import { Nivel_1 } from '../Niveles/Nivel_1.js';
+
+export class GameFactory {
     static build(tipo, datosNivel, alTerminarNivel, alSeleccionarNivel) {
 
         switch (tipo) {
