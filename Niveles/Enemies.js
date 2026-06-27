@@ -38,17 +38,28 @@ class EnemigoBaku extends EnemigoBase {
 // --- DECORADOR BASE ---
 class EnemigoDecorator {
     constructor(enemigo) {
-        this.enemigo = enemigo;
+        // Devolvemos un Proxy que redirige cualquier acceso a 'this.enemigo'
+        return new Proxy(this, {
+            get(target, prop) {
+                // Si la propiedad existe en el decorador, úsala.
+                // Si no, búscala en el enemigo interno.
+                if (prop in target) return target[prop];
+                return target.enemigo[prop];
+            },
+            set(target, prop, value) {
+                if (prop in target) {
+                    target[prop] = value;
+                } else {
+                    target.enemigo[prop] = value;
+                }
+                return true;
+            }
+        });
     }
+
     recibirGolpe(engine) {
         this.enemigo.recibirGolpe(engine);
     }
-    get x() { return this.enemigo.x; }
-    get y() { return this.enemigo.y; }
-    set x(v) { this.enemigo.x = v; }
-    set y(v) { this.enemigo.y = v; }
-    get sprite() { return this.enemigo.sprite; }
-    set sprite(s) { this.enemigo.sprite = s; }
 
     update(dt, player, engine) {
         this.enemigo.update(dt, player, engine);
