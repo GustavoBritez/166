@@ -1,4 +1,4 @@
-import { TILE_DICT } from './TileTypes.js';
+import { TILE_DICT } from '../Enemigo/EnemigoDecorator.js';
 const generarNivelEstres = (tamaño = 100) => {
     // 1. Creación optimizada de la matriz
     const matrizGiga = Array.from({ length: tamaño }, () => Array(tamaño).fill(1));

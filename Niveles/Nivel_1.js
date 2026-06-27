@@ -1,4 +1,4 @@
-import { TILE_DICT } from './TileTypes.js';
+import { TILE_DICT } from '../Enemigo/EnemigoDecorator.js';
 import { TilemapRenderer } from './TilemapRenderer.js';
 
 export class Nivel_1 {
