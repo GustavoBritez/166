@@ -10,4 +10,19 @@ export class Player {
         // Estado actual
         this.isDead = false;
     }
+
+    // Método que gestiona su propia parte visual
+    setSprite(grafico) {
+        this.sprite = grafico;
+        this.sprite.x = this.x;
+        this.sprite.y = this.y;
+    }
+
+    // Método para actualizar la posición visual basándose en la lógica
+    actualizarPosicionVisual() {
+        if (this.sprite) {
+            this.sprite.x = this.x;
+            this.sprite.y = this.y;
+        }
+    }
 }

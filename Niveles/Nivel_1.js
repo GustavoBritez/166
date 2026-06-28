@@ -38,6 +38,7 @@ export class Nivel_1 {
         this.capaEntidades = new PIXI.Container();
         this.capaUI = new PIXI.Container();
 
+
         this.mundo.addChild(this.capaFondo, this.capaEntidades);
         this.app.stage.addChild(this.mundo, this.capaUI);
 
@@ -60,19 +61,14 @@ export class Nivel_1 {
         this.uiManager = new UIManager(this.capaUI);
         this.enemyManager = new EnemyManager(this.capaEntidades, this.tileSize, this.config.enemigos);
 
-        // La cámara inicia siguiendo las coordenadas lógicas iniciales de Kitty
         this.camara = {
             x: this.player.x,
             y: this.player.y
         };
-
         this.gameOver = false;
         this.isPaused = false;
 
-        // Cachear la función resize para poder removerla correctamente en el destroy
         this.handleResize = () => this.redimensionarEscena();
-
-        // Lanzar la puesta a punto del nivel
         this.start();
     }
 
@@ -90,9 +86,7 @@ export class Nivel_1 {
         graficoKitty.drawCircle(0, 0, this.tileSize * 0.25);
         graficoKitty.endFill();
 
-        this.player.sprite = graficoKitty;
-        this.player.sprite.x = this.player.x;
-        this.player.sprite.y = this.player.y;
+        this.player.setSprite(graficoKitty);
         this.capaEntidades.addChild(this.player.sprite);
 
         // Forzar actualización visual inicial del HUD
@@ -105,7 +99,6 @@ export class Nivel_1 {
     update(delta) {
         if (this.gameOver || this.isPaused) return;
 
-        // Convertir el delta frame de PixiJS a Delta Time en segundos lógicos
         const dt = delta / this.app.ticker.FPS;
 
         // 1. Actualización en cascada de la lógica de los componentes autónomos
@@ -124,26 +117,15 @@ export class Nivel_1 {
         this.uiManager.actualizar(this.player);
     }
 
-    dispararProyectil(direccionX, direccionY) {
-        const velocidadBala = 400;
-        let bala = {
-            x: this.player.x, y: this.player.y,
-            vx: direccionX * velocidadBala, vy: direccionY * velocidadBala,
-            sprite: new PIXI.Graphics()
-        };
-
-        bala.sprite.beginFill(0xffff00); // Amarillo brillante
-        bala.sprite.drawCircle(0, 0, this.tileSize * 0.15);
-        bala.sprite.endFill();
-        bala.sprite.x = bala.x; bala.sprite.y = bala.y;
-
-        this.capaEntidades.addChild(bala.sprite);
-        this.projectiles.push(bala);
-    } s
-
     actualizarProyectiles(dt) {
+        // OPTIMIZACIÓN 1: Sacamos la matemática constante fuera de los bucles.
+        // Sumamos los radios (0.15 + 0.22 = 0.37) y elevamos el resultado al cuadrado.
+        const radioColision = this.tileSize * 0.37;
+        const colisionSq = radioColision * radioColision;
+
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             let bala = this.projectiles[i];
+
             bala.x += bala.vx * dt;
             bala.y += bala.vy * dt;
             bala.sprite.x = bala.x;
@@ -157,44 +139,49 @@ export class Nivel_1 {
             }
 
             // Choca contra enemigo
+            let impactoConfirmado = false;
+
             for (let j = 0; j < this.enemyManager.enemies.length; j++) {
                 let enemigo = this.enemyManager.enemies[j];
-                let dist = Math.hypot(bala.x - enemigo.x, bala.y - enemigo.y);
 
-                if (dist < (this.tileSize * 0.15 + this.tileSize * 0.22)) {
-                    enemigo.recibirGolpe(this);
-                    bala.sprite.destroy();
-                    this.projectiles.splice(i, 1);
+                // OPTIMIZACIÓN 2: Teorema de Pitágoras sin raíz cuadrada (O(1) ultrarrápido)
+                let dx = bala.x - enemigo.x;
+                let dy = bala.y - enemigo.y;
+                let distSq = (dx * dx) + (dy * dy);
+
+                // Comparamos los cuadrados directamente
+                if (distSq < colisionSq) {
+                    enemigo.recibirGolpe(25, 'FISICO');
+                    impactoConfirmado = true;
                     break; // Rompemos el bucle del enemigo actual
                 }
             }
+
+            // Limpieza de la bala tras confirmar el impacto
+            if (impactoConfirmado) {
+                bala.sprite.destroy();
+                this.projectiles.splice(i, 1);
+            }
         }
     }
+
     actualizarCamara() {
-        const pantallaW = window.innerWidth;
-        const pantallaH = window.innerHeight;
+        const zonaMuertaW = 150; // 100px a cada lado
+        const zonaMuertaH = 100;  // 80px arriba/abajo
 
-        // Límites de libertad de movimiento para Kitty en el centro del encuadre
-        const zonaMuertaX = 150;
-        const zonaMuertaY = 100;
+        const dx = this.player.x - this.camara.x;
+        const dy = this.player.y - this.camara.y;
 
-        // Comprobación de empuje lateral izquierdo o derecho
-        if (this.player.x > this.camara.x + zonaMuertaX) {
-            this.camara.x = this.player.x - zonaMuertaX;
-        } else if (this.player.x < this.camara.x - zonaMuertaX) {
-            this.camara.x = this.player.x + zonaMuertaX;
+        if (Math.abs(dx) > zonaMuertaW) {
+            this.camara.x += (dx - (Math.sign(dx) * zonaMuertaW)) * 0.1;
         }
 
-        // Comprobación de empuje vertical superior o inferior
-        if (this.player.y > this.camara.y + zonaMuertaY) {
-            this.camara.y = this.player.y - zonaMuertaY;
-        } else if (this.player.y < this.camara.y - zonaMuertaY) {
-            this.camara.y = this.player.y + zonaMuertaY;
+        if (Math.abs(dy) > zonaMuertaH) {
+            this.camara.y += (dy - (Math.sign(dy) * zonaMuertaH)) * 0.1;
         }
 
-        // Mover el contenedor global en sentido inverso para crear la ilusión de scroll orgánico
-        this.mundo.x = (pantallaW / 2) - this.camara.x;
-        this.mundo.y = (pantallaH / 2) - this.camara.y;
+        this.mundo.x = (window.innerWidth / 2) - this.camara.x;
+        this.mundo.y = (window.innerHeight / 2) - this.camara.y;
     }
 
     verificarVictoria() {
@@ -208,33 +195,66 @@ export class Nivel_1 {
     }
 
     redimensionarEscena() {
-        if (this.app && this.app.renderer) {
-            this.app.renderer.resize(window.innerWidth, window.innerHeight);
-
-            // Si el renderizador soporta redimensionado dinámico del pool, se lo notificamos
-            if (this.renderizador && typeof this.renderizador.redimensionarPantalla === 'function') {
-                this.renderizador.redimensionarPantalla(window.innerWidth, window.innerHeight);
-            }
+        if (this.resizeTimeout) {
+            clearTimeout(this.resizeTimeout);
         }
+
+        this.resizeTimeout = setTimeout(() => {
+            if (this.app && this.app.renderer) {
+                // 3. Ajustamos el tamaño del renderizador de PixiJS a la nueva ventana
+                this.app.renderer.resize(window.innerWidth, window.innerHeight);
+
+                // 4. Si nuestro renderizador de mapas tiene una piscina de objetos (pool),
+                // le notificamos para que ajuste sus buffers de memoria y no se desborden.
+                if (this.renderizador && typeof this.renderizador.redimensionarPantalla === 'function') {
+                    this.renderizador.redimensionarPantalla(window.innerWidth, window.innerHeight);
+                }
+
+                // Opcional: Si tienes elementos de UI que necesiten reposicionarse
+                if (this.uiManager && typeof this.uiManager.reajustarUI === 'function') {
+                    this.uiManager.reajustarUI(window.innerWidth, window.innerHeight);
+                }
+            }
+        }, 100);
     }
 
     destroy() {
-        // 1. Desvincular listeners para prevenir fugas de memoria (Memory Leaks)
+        // 1. Limpieza de eventos y temporizadores (Evita ejecuciones fantasma)
+        clearTimeout(this.resizeTimeout);
         window.removeEventListener('resize', this.handleResize);
 
-        // 2. Solicitar limpieza de recursos internos de forma descendente
-        if (this.inputManager && typeof this.inputManager.destroy === 'function') this.inputManager.destroy();
-        if (this.renderizador && typeof this.renderizador.destroy === 'function') this.renderizador.destroy();
-        if (this.uiManager && typeof this.uiManager.destroy === 'function') this.uiManager.destroy();
-
-        this.enemyManager.destroy();
-
-        // 3. Remover sprites explícitos de la memoria de texturas
-        if (this.player && this.player.sprite) {
-            this.player.sprite.destroy();
+        // 2. Destrucción de managers (Inyección de dependencias)
+        // Usamos una lista para evitar repetir el 'if' constantemente
+        const managers = [this.inputManager, this.renderizador, this.uiManager, this.enemyManager, this.projectileManager];
+        for (const manager of managers) {
+            if (manager && typeof manager.destroy === 'function') {
+                manager.destroy();
+            }
         }
 
-        // 4. Apagar por completo el ticker de PixiJS y liberar buffers de la GPU
-        this.app.destroy(true, { children: true, texture: true, baseTexture: true });
+        // 3. Limpieza profunda del modelo y sprites
+        if (this.player) {
+            if (this.player.sprite) {
+                this.player.sprite.destroy(true); // 'true' asegura destruir texturas/hijos
+                this.player.sprite = null;
+            }
+            this.player = null; // Eliminamos la referencia al objeto del jugador
+        }
+
+        // 4. Liberación total de PixiJS (Destrucción jerárquica)
+        if (this.app) {
+            this.app.destroy(true, {
+                children: true,
+                texture: true,
+                baseTexture: true
+            });
+            this.app = null;
+        }
+
+        // 5. Nulificación final de referencias (La técnica clave)
+        // Esto es lo que realmente permite que el Garbage Collector libere la RAM
+        this.mapaMatriz = null;
+        this.config = null;
+        this.eventBus = null;
     }
 }

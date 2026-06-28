@@ -5,8 +5,6 @@ export class CollisionManager {
     }
 
     // --- COLISIONES CON EL ENTORNO (Grid Espacial O(1)) ---
-
-    // Método privado para saber si una coordenada choca con un bloque
     esPared(x, y) {
         const col = Math.floor(x / this.tileSize);
         const fila = Math.floor(y / this.tileSize);
@@ -37,7 +35,6 @@ export class CollisionManager {
         }
         const finalX = chocaX ? player.x : proximoX;
 
-        // Evaluación Eje Y
         let chocaY = false;
         if (vy > 0) {
             if (this.esPared(finalX - radio, proximoY + radio) ||
@@ -53,30 +50,24 @@ export class CollisionManager {
 
     // --- COLISIONES DE COMBATE ---
 
-    // Nivel_1 llamará a esto pasándole a Kitty y la lista de enemigos activos
     verificarColisionesJugadorEnemigo(player, enemies) {
-        if (player.isDead) return;
+        if (player.isDead) return false;
 
-        // Radios de colisión (Hitboxes circulares)
         const radioJugador = this.tileSize * 0.25;
-        const radioEnemigo = this.tileSize * 0.22;
-        const distanciaMinima = radioJugador + radioEnemigo;
 
         for (let i = 0; i < enemies.length; i++) {
             const enemigo = enemies[i];
 
-            // Teorema de Pitágoras para distancia entre dos puntos
             const dx = player.x - enemigo.x;
             const dy = player.y - enemigo.y;
-            const distancia = Math.sqrt(dx * dx + dy * dy);
 
-            if (distancia < distanciaMinima) {
-                // ¡Hubo un choque físico! 
-                console.log("¡Kitty chocó contra un enemigo!");
+            const distSq = (dx * dx) + (dy * dy);
 
-                // Aquí delegamos la lógica a quien corresponda. 
-                // El CollisionManager detecta el choque, pero NO resta vidas.
-                // Eso lo hará el Nivel_1 o el PlayerController en el futuro.
+            const distanciaMinima = radioJugador + enemigo.radioColision;
+
+            const distanciaMinimaSq = distanciaMinima * distanciaMinima;
+
+            if (distSq < distanciaMinimaSq) {
                 return true;
             }
         }

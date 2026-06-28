@@ -49,14 +49,11 @@ export class AppOrchestrator {
             return;
         }
 
-        // 🔥 ARREGLO: Anotamos qué nivel estamos jugando ahora mismo
         this.currentLevelId = levelId;
 
-        // Preparamos las funciones (callbacks) para el GameFactory
         const alTerminarNivel = () => this.procesarVictoria();
         const alSeleccionarNivel = (idDestino) => this.transitionTo(idDestino);
 
-        // Le pedimos a la Fábrica que construya
         const productoMecanico = GameFactory.build(
             datosNivel.type,
             datosNivel,
@@ -66,14 +63,11 @@ export class AppOrchestrator {
 
         if (!productoMecanico) return;
 
-        // Inyectamos el HTML
         this.contenedor.innerHTML = productoMecanico.template;
 
-        // Ejecutamos el motor (PixiJS o lógica del Lobby)
         this.gameState = datosNivel.type === "lobby" ? "MENU" : "PLAYING";
         this.currentEngine = productoMecanico.init();
 
-        // Subimos la cortina revelando todo
         gsap.to(this.cortina, { opacity: 0, duration: 0.4 });
     }
 
@@ -83,15 +77,8 @@ export class AppOrchestrator {
         this.mostrarPantallaFinal(true);
     }
 
-    /*procesarDerrota() {
-        if (this.gameState === "GAMEOVER") return;
-        this.gameState = "GAMEOVER";
-        this.mostrarPantallaFinal(false);
-    }*/
 
-    // 🔥 EL SISTEMA DE PANTALLA FINAL CUTE
     mostrarPantallaFinal(esVictoria) {
-        // Borramos el modal anterior si existiera
         const modalViejo = document.getElementById('modalResultadoFinal');
         if (modalViejo) modalViejo.remove();
 
@@ -114,7 +101,6 @@ export class AppOrchestrator {
         const colorSombra = esVictoria ? "#27ae60" : "#d11a5b";
         const colorTexto = esVictoria ? "#a8e6cf" : "#ffb7c5";
 
-        // 🔥 ARREGLO: Usamos nuestra nueva variable segura
         const nivelActual = this.currentLevelId;
 
         modal.innerHTML = `
@@ -139,14 +125,11 @@ export class AppOrchestrator {
             </div>
         `;
 
-        // Lo inyectamos en el DOM (en el contenedor principal)
         this.contenedor.appendChild(modal);
 
-        // Animación suave de entrada con GSAP
         gsap.to(modal, { opacity: 1, duration: 0.3 });
         gsap.to('#cajaResultadoFinal', { scale: 1, duration: 0.5, ease: "back.out(1.5)" });
 
-        // Efecto hover
         const btnPrincipal = modal.querySelector('button');
         if (btnPrincipal) {
             btnPrincipal.addEventListener('mousedown', () => btnPrincipal.style.transform = 'translateY(4px)');
