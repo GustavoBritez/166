@@ -74,6 +74,40 @@ export class EnemigoBase {
     }
 }
 
+export class Baku extends EnemigoBase {
+    constructor(data, tileSize) {
+        // Llamamos al constructor del padre (EnemigoBase)
+        super(data, tileSize);
+
+        // Sobreescribimos los valores específicos de Baku
+        // Si el JSON no trae valores, estos serán sus "por defecto"
+        this.tipo = 'BAKU';
+        this.velocidad = 150; // Es más rápido que un enemigo base
+
+        // Stats específicos de Baku
+        this.vidaMaxima = 200;
+        this.vidaActual = 200;
+        this.defensaBase = 15;
+    }
+    update(dt, player, engine) {
+        // 1. Calculamos hacia dónde queremos ir
+        this.vx = this.dirX * this.velocidad;
+        const nextX = this.x + (this.vx * dt);
+
+        // 2. LE PREGUNTAMOS AL INSPECTOR (CollisionManager)
+        // Usamos el método que ya tienes en tu engine (asumiendo que engine trae el collisionManager)
+        const hayPared = engine.collisionManager.esPared(nextX, this.y);
+
+        if (hayPared) {
+            this.dirX *= -1; // ¡Rebote!
+        } else {
+            this.x = nextX; // Todo libre, nos movemos
+        }
+
+        // 3. Actualizamos visual
+        if (this.sprite) this.sprite.x = this.x;
+    }
+}
 // --- DECORADOR BASE (Delegación directa, sin Proxy para ganar rendimiento) ---
 class EnemigoDecorator {
     constructor(enemigo) {

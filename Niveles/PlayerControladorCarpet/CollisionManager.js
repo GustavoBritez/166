@@ -13,7 +13,7 @@ export class CollisionManager {
             return true;
         }
 
-        return this.mapaMatriz[fila][col] === 1;
+        return TILE_DICT[this.mapaMatriz[fila][col]]?.solido === true;
     }
 
     resolverMovimiento(player, vx, vy, dt) {

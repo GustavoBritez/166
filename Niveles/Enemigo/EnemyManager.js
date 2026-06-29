@@ -1,5 +1,5 @@
 import { EnemigoBase } from './EnemigoBase.js'; // Asegúrate de tener la ruta correcta
-import { Baku } from './Plantillas/Baku.js';
+import { Baku } from './Plantillas/Enemy_Classes.js';
 export class EnemyManager {
     constructor(capaEntidades, tileSize, configEnemigos) {
         this.capaEntidades = capaEntidades;
@@ -30,21 +30,21 @@ export class EnemyManager {
     }
 
     fabricaDeEnemigos(data) {
-        let enemigo;
+        // 1. Instanciamos la clase que corresponda
+        // Si es un Baku, instancia Baku. Si es Base, instancia EnemigoBase.
+        const EnemyClass = ENEMY_CLASSES[data.type] || EnemigoBase;
+        let enemigo = new EnemyClass(data, this.tileSize);
 
-        // ¿Tenemos alguno en el pool esperando?
-        if (this.pool.length > 0) {
-            enemigo = this.pool.pop();
-            // Reiniciamos sus datos básicos
-            enemigo.x = data.gridX * this.tileSize + (this.tileSize / 2);
-            enemigo.y = data.gridY * this.tileSize + (this.tileSize / 2);
-            enemigo.isDead = false;
-            if (enemigo.sprite) enemigo.sprite.visible = true;
-        } else {
-            // Si el pool está vacío, recién ahí creamos uno nuevo
-            enemigo = new EnemigoBase(data, this.tileSize);
-            // ... (creación inicial del sprite) ...
+        // 2. Si el enemigo DEBE llevar decoración extra (ej: un Baku de fuego),
+        // se la ponemos aquí, pero solo si es necesario.
+        if (data.decoradores) {
+            for (const dec of data.decoradores) {
+                if (dec === 'FIRE') enemigo = new FireDecorator(enemigo);
+            }
         }
+        // 3. Posicionamiento (Independiente de qué clase sea)
+        enemigo.x = data.gridX * this.tileSize + (this.tileSize / 2);
+        enemigo.y = data.gridY * this.tileSize + (this.tileSize / 2);
 
         this.enemies.push(enemigo);
         return enemigo;
