@@ -9,22 +9,18 @@ export class CollisionManager {
         const col = Math.floor(x / this.tileSize);
         const fila = Math.floor(y / this.tileSize);
 
-        // Protección contra salidas del mapa (abismos)
         if (fila < 0 || fila >= this.mapaMatriz.length || col < 0 || col >= this.mapaMatriz[0].length) {
             return true;
         }
 
-        // El 1 representa un bloque sólido en tu matriz
         return this.mapaMatriz[fila][col] === 1;
     }
 
-    // El controlador llama a esto para calcular el deslizamiento contra muros
     resolverMovimiento(player, vx, vy, dt) {
         let proximoX = player.x + vx * dt;
         let proximoY = player.y + vy * dt;
         const radio = this.tileSize * 0.25; // Tamaño físico de Kitty
 
-        // Evaluación Eje X
         let chocaX = false;
         if (vx > 0) {
             if (this.esPared(proximoX + radio, player.y - radio) ||

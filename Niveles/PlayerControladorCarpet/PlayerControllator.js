@@ -1,3 +1,5 @@
+
+
 export class PlayerController {
     // + constructor(player, inputManager, collisionManager)
     constructor(player, inputManager, collisionManager) {
@@ -41,13 +43,17 @@ export class PlayerController {
     calcularVelocidadActual() {
         let vx = 0;
         let vy = 0;
-        const velocidadBase = this.player.speed; // Viene de tu archivo de tuning (ej: 170)
 
+        const tileActual = this.collisionManager.getTileAt(this.player.x, this.player.y);
+
+        const multiplicador = tileActual?.multiplicadorVel || 1;
+        const velocidadBase = this.player.speed * multiplicadorVel;
         // El Controlador no sabe NADA de teclado, solo le pregunta al InputManager
         if (this.inputManager.isActionPressed('MOVE_UP')) vy -= velocidadBase;
         if (this.inputManager.isActionPressed('MOVE_DOWN')) vy += velocidadBase;
         if (this.inputManager.isActionPressed('MOVE_LEFT')) vx -= velocidadBase;
         if (this.inputManager.isActionPressed('MOVE_RIGHT')) vx += velocidadBase;
+
 
         // Normalizamos la velocidad diagonal por Pitágoras (para evitar que Kitty corra más rápido en diagonal)
         if (vx !== 0 && vy !== 0) {

@@ -74,37 +74,22 @@ export class EnemigoBase {
     }
 }
 
-class EnemigoBaku extends EnemigoBase {
-    update(dt, player, engine) {
-        this.velocidad = 150;
-        super.update(dt, player, engine);
-    }
-}
-
-// --- DECORADOR BASE ---
+// --- DECORADOR BASE (Delegación directa, sin Proxy para ganar rendimiento) ---
 class EnemigoDecorator {
     constructor(enemigo) {
-        // Devolvemos un Proxy que redirige cualquier acceso a 'this.enemigo'
-        return new Proxy(this, {
-            get(target, prop) {
-                // Si la propiedad existe en el decorador, úsala.
-                // Si no, búscala en el enemigo interno.
-                if (prop in target) return target[prop];
-                return target.enemigo[prop];
-            },
-            set(target, prop, value) {
-                if (prop in target) {
-                    target[prop] = value;
-                } else {
-                    target.enemigo[prop] = value;
-                }
-                return true;
-            }
-        });
+        this.enemigo = enemigo;
     }
 
-    recibirGolpe(engine) {
-        this.enemigo.recibirGolpe(engine);
+    // Delegamos todas las llamadas al objeto decorado
+    get x() { return this.enemigo.x; }
+    get y() { return this.enemigo.y; }
+    set x(val) { this.enemigo.x = val; }
+    set y(val) { this.enemigo.y = val; }
+    get sprite() { return this.enemigo.sprite; }
+    set sprite(val) { this.enemigo.sprite = val; }
+
+    recibirGolpe(cantidadDaño, tipoElemento) {
+        this.enemigo.recibirGolpe(cantidadDaño, tipoElemento);
     }
 
     update(dt, player, engine) {
@@ -115,71 +100,67 @@ class EnemigoDecorator {
 // --- CONCRETO: Decorador de Fuego ---
 class FireDecorator extends EnemigoDecorator {
     update(dt, player, engine) {
-        super.update(dt, player, engine); // Ejecuta el movimiento base
+        super.update(dt, player, engine);
 
-        // Lógica extra: Daño por proximidad
-        const dx = player.x - this.x;
-        const dy = player.y - this.y;
-        if (Math.hypot(dx, dy) < 40) {
+        const dx = player.x - this.enemigo.x;
+        const dy = player.y - this.enemigo.y;
+        // Math.hypot es lento, usamos distSq manual
+        if ((dx * dx + dy * dy) < 1600) { // 40 al cuadrado
             console.log("¡Jugador quemándose!");
-
         }
     }
 }
 
 // --- CONCRETO: Decorador de Velocidad ---
 class SpeedDecorator extends EnemigoDecorator {
+    constructor(enemigo, factor = 1.5) {
+        super(enemigo);
+        this.factor = factor;
+    }
+
     update(dt, player, engine) {
-        this.enemigo.velocidad *= 1.5;
+        // Multiplicamos la velocidad solo una vez por frame
+        this.enemigo.velocidad *= this.factor;
         super.update(dt, player, engine);
+        // Reseteamos para que no se multiplique exponencialmente
+        this.enemigo.velocidad /= this.factor;
     }
 }
 
+// --- CONCRETO: Decorador Splitter (Optimizado para POOL) ---
 class SplitterDecorator extends EnemigoDecorator {
-    constructor(enemigo, vidas, esHijo = false) {
+    constructor(enemigo, engineRef) {
         super(enemigo);
-        this.vidas = vidas;
-        this.esHijo = esHijo;
-        this.maxGolpes = vidas;
+        this.engine = engineRef;
     }
 
-    update(dt, player, engine) {
+    // El Splitter intercepta el golpe para decidir si muere o se divide
+    recibirGolpe(cantidadDaño, tipoElemento) {
+        // Reducimos vida interna del decorador
+        this.enemigo.vidaActual -= cantidadDaño;
 
-        super.update(dt, player, engine);
-    }
-
-    recibirGolpe(engine) {
-        this.vidas -= 1;
-        if (this.vidas <= 0) {
-            this.morir(engine);
+        if (this.enemigo.vidaActual <= 0 && !this.enemigo.isDead) {
+            this.dividirse();
+            this.enemigo.morir();
         }
     }
 
-    morir(engine) {
-        const index = engine.enemies.indexOf(this);
-        if (index !== -1) engine.enemies.splice(index, 1);
-        if (this.sprite) this.sprite.destroy();
-
-
-        const col = Math.floor(this.x / engine.tileSize);
-        const fila = Math.floor(this.y / engine.tileSize);
-
+    dividirse() {
+        // Usamos la fábrica del Manager para sacar hijos del POOL
         for (let i = 0; i < 4; i++) {
-            let hijo = new EnemigoBase({ gridX: col, gridY: fila, tipo: 'hijo' }, engine.tileSize);
+            const dataHijo = {
+                gridX: Math.floor(this.enemigo.x / this.engine.tileSize),
+                gridY: Math.floor(this.enemigo.y / this.engine.tileSize),
+                tipo: 'HIJO_SPLITTER',
+                velocidad: this.enemigo.velocidad * 0.5
+            };
 
-            hijo.sprite = engine.crearCirculo(0xffffff, engine.tileSize * 0.15);
+            // Creamos el hijo a través del manager para asegurar que viene del POOL
+            const hijo = this.engine.fabricaDeEnemigos(dataHijo);
 
-            hijo.x += (Math.random() - 0.5) * engine.tileSize * 0.5;
-            hijo.y += (Math.random() - 0.5) * engine.tileSize * 0.5;
-
-            hijo.sprite.x = hijo.x;
-            hijo.sprite.y = hijo.y;
-
-
-            hijo.velocidad = this.enemigo.velocidad * 0.5;
-
-            engine.capaEntidades.addChild(hijo.sprite);
-            engine.enemies.push(hijo);
+            // Ajuste fino de posición
+            hijo.x += (Math.random() - 0.5) * 20;
+            hijo.y += (Math.random() - 0.5) * 20;
         }
     }
 }
