@@ -73,7 +73,10 @@ export class EnemigoBase {
         if (this.sprite) this.sprite.visible = false;
     }
 }
-
+const ENEMY_CLASSES = {
+    'BAKU': Baku,
+    'BASE': EnemigoBase
+};
 export class Baku extends EnemigoBase {
     constructor(data, tileSize) {
         // Llamamos al constructor del padre (EnemigoBase)

@@ -1,5 +1,4 @@
 import { EnemigoBase } from './EnemigoBase.js'; // Asegúrate de tener la ruta correcta
-import { Baku } from './Plantillas/Enemy_Classes.js';
 export class EnemyManager {
     constructor(capaEntidades, tileSize, configEnemigos) {
         this.capaEntidades = capaEntidades;

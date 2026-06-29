@@ -1,4 +1,4 @@
-import { TilemapRenderer } from '.TilemapRenderer.js';
+import { TilemapRenderer } from '../Service/TilemapRenderer.js';
 import { UIManager } from './UiManager/UiManager.js';
 import { InputManager } from './PlayerControladorCarpet/InputManager.js';
 import { CollisionManager } from './PlayerControladorCarpet/CollisionManager.js';
